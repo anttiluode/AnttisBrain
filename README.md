@@ -2,6 +2,8 @@
 
 Welcome to Antti's brain. It is a scary place.
 
+Test it live: https://anttiluode.github.io/AnttisBrain/ the version in the image is cascade mode with webcam on. 
+
 ![pic](pic.png)
 
 
