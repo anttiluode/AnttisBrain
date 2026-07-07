@@ -8,7 +8,7 @@ Welcome to Antti's brain. It is a scary place.
 Four small worlds you can fly through in a browser. Each is a single self-contained HTML file — no build step, no dependencies, no server. Open one and you are inside it. They share a lineage and a discipline: every visual thing on screen is a real technique doing what the label says, and where something is an approximation, it says so.
 
 **Live:** the repo deploys to GitHub Pages, so each world is playable at
-`https://anttiluode.github.io/AnttisBrain/<file>.html`.
+[`https://anttiluode.github.io/AnttisBrain/<file>.html`.](https://anttiluode.github.io/AnttisBrain/)
 
 ---
 
