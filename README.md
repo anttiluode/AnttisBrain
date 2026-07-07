@@ -81,6 +81,17 @@ The shader logic for Cascade mode breaks the usual rule of rendering where an ob
 
 *Like the other boxes, this asks for camera permission. Deny it and it falls back to a moving test pattern with identical physics. Nothing leaves your machine.*
 
+### **6. takens-time-delay.html — spatialized phase-space reconstruction**
+
+The evolution of the cascade into a temporal memory substrate. In this build, the local speed of light is tied to the gravitational potential. The geodesic arc-length (trav) no longer just calculates fog—it acts as an index into a live, rolling 60-frame 3D texture buffer of the boundary.  
+Mass doesn't just bend space here; it creates local reservoirs of time.
+
+* **Continuous Takens Embedding:** Light passing close to a heavy moon takes longer to escape to your eye. This means a single spatial cross-section of the screen displays a continuous gradient of time delays. The bulk acts as a delay-coordinate map, spatially unfolding the hidden phase-space of whatever dynamics are happening on the webcam.  
+* **Temporal Gravity Wells:** If you move your hand across the camera, flat space updates instantly, but the heavy cores hold onto frozen "ghosts" of your past position. You can watch your own history slowly dissolve as the trapped, older light finally crawls out of the curvature.  
+* **Koopman-Ready Interference:** Because the time-delays have unfolded hidden variables into spatial coordinates, the visual interference patterns wrapping around the moons effectively linearize the nonlinear dynamics of the boundary. The cascade is no longer just a spatial hall of mirrors; it is a temporal feedback loop where your present image collides with your past.
+
+*(Like the other boxes, this asks for camera permission. Deny it and it falls back to a moving test pattern with identical physics. Nothing leaves your machine.)*
+
 ---
 
 ## The mathematics, gathered
