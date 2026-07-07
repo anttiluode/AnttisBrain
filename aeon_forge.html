@@ -1,0 +1,640 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>AEON FORGE — ääretön kone · a different universe every boot</title>
+<style>
+  :root{
+    --void:#04060b; --ink:#c9d4e0; --amber:#e8b13a; --amber-dim:#8a6d2c;
+    --cyan:#54d2e2; --line:#1b2436; --dim:#67788d; --green:#4ec98f; --red:#e06060;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--void);overflow:hidden;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink)}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #gl.drag{cursor:grabbing}
+  .panel{position:fixed;background:rgba(6,9,16,.74);border:1px solid var(--line);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #hud{top:14px;left:14px;padding:12px 14px;min-width:250px;font-size:11px;line-height:1.7}
+  #hud .name{color:var(--amber);letter-spacing:.14em;font-size:12px;margin-bottom:2px}
+  #hud .sub{color:var(--dim);font-size:10px;margin-bottom:8px}
+  #hud .row{display:flex;justify-content:space-between;color:#8494a8;gap:14px}
+  #hud .row span{color:var(--ink);text-align:right}
+  #hud .row .k{color:var(--dim)}
+  #log{margin-top:8px;border-top:1px solid var(--line);padding-top:6px;color:var(--dim);
+    font-size:10px;line-height:1.7;min-height:14px}
+  #log .ev{color:#9fb0c2}
+  #ctl{bottom:14px;left:14px;padding:12px 14px;width:300px;font-size:11px}
+  #ctl h2{margin:0 0 9px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--cyan);font-weight:600}
+  .field{margin:8px 0}
+  .field label{display:flex;justify-content:space-between;color:#8494a8;margin-bottom:4px}
+  .field label var{color:var(--ink);font-style:normal}
+  input[type=range]{width:100%;height:2px;-webkit-appearance:none;appearance:none;
+    background:var(--line);outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;
+    background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  input[type=text]{width:100%;background:#0a0f1a;border:1px solid var(--line);color:var(--ink);
+    font:inherit;font-size:10px;padding:6px 8px;letter-spacing:.04em}
+  input[type=text]:focus{outline:none;border-color:var(--amber-dim)}
+  .btns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  button{flex:1;min-width:56px;padding:7px 4px;background:transparent;color:var(--ink);
+    border:1px solid var(--line);font:inherit;font-size:10px;letter-spacing:.05em;
+    cursor:pointer;transition:.15s;text-transform:uppercase}
+  button:hover{border-color:var(--amber-dim);color:var(--amber)}
+  button.on{border-color:var(--cyan);color:var(--cyan)}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  #stat{margin-top:7px;font-size:10px;color:var(--dim);min-height:13px}
+  #help{bottom:14px;right:14px;padding:11px 13px;font-size:10.5px;line-height:1.85;
+    color:#73859a;text-align:right;max-width:220px}
+  #help b{color:var(--amber);font-weight:400}
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--void);z-index:9;flex-direction:column;gap:16px;text-align:center;
+    padding:24px;transition:opacity 1.2s}
+  #boot.gone{opacity:0;pointer-events:none}
+  #boot .pre{color:var(--dim);letter-spacing:.3em;font-size:10px;text-transform:uppercase}
+  #boot .big{color:var(--amber);letter-spacing:.28em;font-size:26px}
+  #boot .laws{color:#8494a8;font-size:11px;line-height:2;max-width:420px}
+  #boot .laws b{color:var(--cyan);font-weight:400}
+  #boot.err .big{color:var(--red)}
+  @media (max-width:680px){
+    #ctl{width:calc(100% - 28px)} #hud{font-size:10px;min-width:0} #help{display:none}
+    #boot .big{font-size:18px}
+  }
+</style>
+
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <div class="pre">compiling laws from 32 bits</div>
+  <div class="big" id="bootName">—</div>
+  <div class="laws" id="bootLaws">…</div>
+</div>
+
+<div id="hud" class="panel" hidden>
+  <div class="name" id="uName">—</div>
+  <div class="sub">universe <span id="uDnaShort">—</span> · <span id="fps">— fps</span></div>
+  <div class="row"><span class="k">age</span><span id="uAge">0 Myr</span></div>
+  <div class="row"><span class="k">laws</span><span id="uLaws">—</span></div>
+  <div class="row"><span class="k">crust regime</span><span id="uCrust">—</span></div>
+  <div class="row"><span class="k">wells</span><span id="uWells">—</span></div>
+  <div id="log"></div>
+</div>
+
+<div id="ctl" class="panel" hidden>
+  <h2>Forge</h2>
+  <div class="field"><label>Time flow <var id="t_l">1.0×</var></label>
+    <input id="t" type="range" min="0" max="4" step="0.1" value="1"></div>
+  <div class="field"><label>Universe DNA — paste a code and load it</label>
+    <input id="dna" type="text" spellcheck="false" autocomplete="off"></div>
+  <div class="btns">
+    <button id="bNew">New universe</button>
+    <button id="bCopy">Copy DNA</button>
+    <button id="bLoad">Load DNA</button>
+  </div>
+  <div class="btns">
+    <button id="bSave">Save</button>
+    <button id="bResume">Resume saved</button>
+    <button id="bSound">Sound: off</button>
+  </div>
+  <div class="btns">
+    <button id="bLens" class="on">Lensing: on</button>
+    <button id="bDrift" class="on">Drift: on</button>
+  </div>
+  <div id="stat"></div>
+</div>
+
+<div id="help" class="panel" hidden>
+  <b>W A S D</b> move · <b>Q E</b> down/up<br>
+  drag to look · <b>shift</b> boost<br>
+  release for auto-drift
+</div>
+
+<script type="text/javascript">
+'use strict';
+const $=id=>document.getElementById(id);
+const cvs=$('gl'), boot=$('boot');
+const gl=cvs.getContext('webgl2',{antialias:false,powerPreference:'high-performance'});
+if(!gl){boot.classList.add('err');boot.innerHTML='<div class="big">No WebGL2</div><div class="laws">This forge needs a WebGL2 browser (recent Chrome, Firefox, Edge, Safari).</div>';}
+
+const MAXW=24, CASZ=64;
+
+/* ---------------- shaders ---------------- */
+const VERT=`#version 300 es
+void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0.0,1.0);}`;
+
+const FRAG=`#version 300 es
+precision highp float;
+out vec4 O;
+uniform vec2 iRes;
+uniform vec3 camP,camR,camU,camF;
+uniform int nWell,doLens;
+uniform vec4 wells[${MAXW}];
+uniform vec3 wellCol[${MAXW}];
+uniform float mGain,slope,caAmp,fogK,bandAmt,bandTilt,lensK;
+uniform mat2 warp;
+uniform vec3 palA,palB,palC,palD,skyLo,skyHi,bandCol;
+uniform sampler2D caTex;
+
+vec3 pal(float t){return palA+palB*cos(6.28318*(palC*t+palD));}
+float h21(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vnoise(vec2 p){
+  vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.0-2.0*f);
+  float a=h21(i),b=h21(i+vec2(1,0)),c=h21(i+vec2(0,1)),d=h21(i+vec2(1,1));
+  return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);
+}
+float terrain(vec2 w){
+  vec2 q=warp*w;
+  float h=0.0,amp=1.0,frq=1.0,norm=0.0;
+  for(int i=0;i<6;i++){h+=amp*vnoise(q*frq);norm+=amp;frq*=2.0;amp*=pow(0.5,slope);}
+  float base=(h/norm)*7.0-3.5;
+  float ca=texture(caTex,w*0.07).r;
+  return base+ca*caAmp;
+}
+float sdScene(vec3 p){
+  float d=(p.y-terrain(p.xz*0.09))*0.55;
+  for(int i=0;i<${MAXW};i++){
+    if(i>=nWell)break;
+    float r=0.35+wells[i].w*0.5*mGain;
+    float ds=length(p-wells[i].xyz)-r;
+    float k=1.4;float hh=clamp(0.5+0.5*(ds-d)/k,0.0,1.0);
+    d=mix(ds,d,hh)-k*hh*(1.0-hh);
+  }
+  return d;
+}
+void main(){
+  vec2 uv=(gl_FragCoord.xy-0.5*iRes)/iRes.y;
+  vec3 ro=camP;
+  vec3 rd=normalize(uv.x*camR+uv.y*camU+1.5*camF);
+  vec3 glow=vec3(0.0);
+  float t=0.0;float hit=-1.0;
+  for(int i=0;i<96;i++){
+    vec3 p=ro+rd*t;
+    if(doLens==1){
+      vec3 pull=vec3(0.0);
+      for(int k=0;k<${MAXW};k++){
+        if(k>=nWell)break;
+        vec3 dv=wells[k].xyz-p;float r2=dot(dv,dv)+0.6;
+        pull+=dv*(wells[k].w*mGain/(r2*r2));
+      }
+      rd=normalize(rd+pull*lensK);
+    }
+    for(int k=0;k<${MAXW};k++){
+      if(k>=nWell)break;
+      float r=length(p-wells[k].xyz);
+      float e=wells[k].w*mGain/(r+1.0);
+      glow+=wellCol[k]*e*e*0.010;
+    }
+    float d=sdScene(p);
+    if(d<0.004){hit=t;break;}
+    t+=max(d,0.02);
+    if(t>90.0)break;
+  }
+  vec3 col;
+  if(hit>0.0){
+    vec3 p=ro+rd*hit;
+    vec2 e=vec2(0.02,0.0);
+    vec3 n=normalize(vec3(
+      sdScene(p+e.xyy)-sdScene(p-e.xyy),
+      sdScene(p+e.yxy)-sdScene(p-e.yxy),
+      sdScene(p+e.yyx)-sdScene(p-e.yyx)));
+    float ht=clamp((p.y+4.0)/9.0,0.0,1.0);
+    vec3 base=pal(ht*0.6+0.08);
+    float ca=texture(caTex,p.xz*0.09*0.07).r;
+    base=mix(base,pal(0.95),clamp(ca*0.75,0.0,0.8));
+    vec3 L=normalize(vec3(0.4,0.8,0.3));
+    float dif=clamp(dot(n,L),0.0,1.0)*0.8+0.2;
+    float fog=exp(-hit*fogK);
+    col=base*dif*fog;
+  }else{
+    float g=clamp(rd.y*1.4+0.35,0.0,1.0);
+    col=mix(skyLo,skyHi,g);
+    float band=exp(-pow((rd.y-bandTilt*rd.x)*4.0,2.0));
+    col+=bandCol*band*bandAmt;
+  }
+  col+=glow;
+  col=col/(col+1.0);
+  col=pow(col,vec3(0.4545));
+  O=vec4(col,1.0);
+}`;
+
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
+let prog,U={};
+try{
+  prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw gl.getProgramInfoLog(prog);
+  gl.useProgram(prog);
+  ['iRes','camP','camR','camU','camF','nWell','doLens','mGain','slope','caAmp','fogK',
+   'bandAmt','bandTilt','lensK','warp','palA','palB','palC','palD','skyLo','skyHi',
+   'bandCol','caTex','wells','wellCol'].forEach(k=>U[k]=gl.getUniformLocation(prog,k));
+  gl.uniform1i(U.caTex,0);
+}catch(err){
+  boot.classList.add('err');
+  boot.innerHTML='<div class="big">Shader error</div><div class="laws">'+String(err).slice(0,300)+'</div>';
+  throw err;
+}
+gl.bindVertexArray(gl.createVertexArray());
+
+/* ---------------- deterministic law RNG ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;
+  return((t^t>>>14)>>>0)/4294967296;};}
+
+const REGIMES=[
+  [0.0367,0.0649,'mitosis'],
+  [0.0545,0.0620,'coral'],
+  [0.0580,0.0650,'worms'],
+  [0.0300,0.0570,'mazes'],
+  [0.0260,0.0510,'pulse fronts'],
+  [0.0220,0.0590,'solitons'],
+];
+const SYL=['ka','ve','ra','tho','il','us','mir','sa','lo','ne','ky','va','ri','tuu','hel','ai','ou','ler','din','yx'];
+
+function makeName(r){
+  let n='';const c=2+((r()*2)|0);
+  for(let i=0;i<c;i++)n+=SYL[(r()*SYL.length)|0];
+  return n.toUpperCase()+'-'+(10+((r()*89)|0));
+}
+
+/* Every law flows from the seed, in fixed order — the DNA is the physics. */
+function makeUniverse(seed){
+  const r=mulberry32(seed);
+  const u={seed};
+  u.name=makeName(r);
+  u.slope=0.6+r()*2.2;                       // spectral slope of the ground
+  u.skewW=(r()-0.5)*0.010;                   // arrow of time: signed skew rotation rate
+  u.shear=(r()-0.5)*0.7;                     // skew shear of the terrain domain
+  u.wellMax=10+((r()*(MAXW-10))|0);          // carrying capacity
+  u.mGain=0.7+r()*1.1;
+  u.lensK=0.035+r()*0.05;
+  u.fogK=0.014+r()*0.018;
+  u.caAmp=0.8+r()*1.9;                       // how loud the living crust speaks
+  const reg=REGIMES[(r()*REGIMES.length)|0];
+  u.F=reg[0]+(r()-0.5)*0.002; u.k=reg[1]+(r()-0.5)*0.001; u.regime=reg[2];
+  u.birthRate=0.02+r()*0.09;                 // stars per second
+  // IQ cosine palette — the universe's light
+  u.palA=[0.42+r()*0.16,0.42+r()*0.16,0.42+r()*0.16];
+  u.palB=[0.22+r()*0.24,0.22+r()*0.24,0.22+r()*0.24];
+  u.palC=[0.7+r()*0.7,0.7+r()*0.7,0.7+r()*0.7];
+  u.palD=[r(),r(),r()];
+  const sky=t=>palJS(u,t).map(v=>v*0.16);
+  u.skyLo=sky(0.02+r()*0.1); u.skyHi=sky(0.75+r()*0.2);
+  u.bandCol=palJS(u,r()).map(v=>v*0.5);
+  u.bandAmt=r()<0.35?0:0.03+r()*0.09;        // some universes have a galactic band, some don't
+  u.bandTilt=(r()-0.5)*0.8;
+  // primordial wells — orbits are analytic in age, so any epoch reconstructs exactly
+  u.wells=[];
+  const n0=Math.max(6,(u.wellMax*0.7)|0);
+  for(let i=0;i<n0;i++)u.wells.push(spawnWell(r,u));
+  return u;
+}
+function spawnWell(r,u){
+  return{mass:-Math.log(1e-6+r()),phase:r()*6.283,rad:6+r()*17,
+    spin:(0.05+r()*0.18)*(r()<0.5?-1:1),y:1.5+r()*7,bob:r()*6.283,
+    colT:r(),flash:0};
+}
+function palJS(u,t){
+  return[0,1,2].map(i=>Math.max(0,u.palA[i]+u.palB[i]*Math.cos(6.28318*(u.palC[i]*t+u.palD[i]))));
+}
+
+/* ---------------- living crust: Gray-Scott reaction-diffusion ---------------- */
+let Ug=new Float32Array(CASZ*CASZ),Vg=new Float32Array(CASZ*CASZ);
+let U2=new Float32Array(CASZ*CASZ),V2=new Float32Array(CASZ*CASZ);
+const caPix=new Uint8Array(CASZ*CASZ);
+let caTexture=null;
+function caInit(seed){
+  const r=mulberry32(seed^0x9e3779b9);
+  Ug.fill(1);Vg.fill(0);
+  const blobs=4+((r()*6)|0);
+  for(let b=0;b<blobs;b++){
+    const cx=(r()*CASZ)|0,cy=(r()*CASZ)|0,rad=2+r()*4;
+    for(let y=-6;y<=6;y++)for(let x=-6;x<=6;x++){
+      if(x*x+y*y<rad*rad){
+        const i=((cy+y+CASZ)%CASZ)*CASZ+((cx+x+CASZ)%CASZ);
+        Vg[i]=0.6+r()*0.4;Ug[i]=0.4;
+      }
+    }
+  }
+}
+function caStep(n,F,k){
+  for(let s=0;s<n;s++){
+    for(let y=0;y<CASZ;y++){
+      const yu=((y-1+CASZ)%CASZ)*CASZ,yd=((y+1)%CASZ)*CASZ,yc=y*CASZ;
+      for(let x=0;x<CASZ;x++){
+        const xl=(x-1+CASZ)%CASZ,xr=(x+1)%CASZ;
+        const c=yc+x;
+        const lapU=-Ug[c]+0.2*(Ug[yu+x]+Ug[yd+x]+Ug[yc+xl]+Ug[yc+xr])
+                  +0.05*(Ug[yu+xl]+Ug[yu+xr]+Ug[yd+xl]+Ug[yd+xr]);
+        const lapV=-Vg[c]+0.2*(Vg[yu+x]+Vg[yd+x]+Vg[yc+xl]+Vg[yc+xr])
+                  +0.05*(Vg[yu+xl]+Vg[yu+xr]+Vg[yd+xl]+Vg[yd+xr]);
+        const uvv=Ug[c]*Vg[c]*Vg[c];
+        let nu=Ug[c]+lapU-uvv+F*(1-Ug[c]);
+        let nv=Vg[c]+0.5*lapV+uvv-(F+k)*Vg[c];
+        U2[c]=nu<0?0:nu>1?1:nu;
+        V2[c]=nv<0?0:nv>1?1:nv;
+      }
+    }
+    let t=Ug;Ug=U2;U2=t; t=Vg;Vg=V2;V2=t;
+  }
+}
+function caUpload(){
+  let mx=0;
+  for(let i=0;i<CASZ*CASZ;i++){const v=Vg[i];if(v>mx)mx=v;
+    caPix[i]=Math.min(255,(v*520)|0);}
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,caTexture);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.R8,CASZ,CASZ,0,gl.RED,gl.UNSIGNED_BYTE,caPix);
+  return mx;
+}
+(function makeCaTex(){
+  caTexture=gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,caTexture);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT,1);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);
+})();
+
+/* ---------------- universe state ---------------- */
+let UNI=null, age=0, timeScale=1, lens=1, drift=1, soundOn=false;
+let runtimeRng=Math.random;
+const wellsF=new Float32Array(MAXW*4), colsF=new Float32Array(MAXW*3);
+const CA_RATE=180;   // crust steps per world-second at time 1×
+
+function dnaOf(){return 'AEON-'+(UNI.seed>>>0).toString(36)+'-'+Math.max(0,Math.floor(age)).toString(36);}
+function parseDna(s){
+  const m=String(s).trim().match(/^AEON-([0-9a-z]+)-([0-9a-z]+)$/i);
+  if(!m)return null;
+  const seed=parseInt(m[1],36)>>>0, a=parseInt(m[2],36);
+  if(!isFinite(seed)||!isFinite(a))return null;
+  return{seed,age:Math.max(0,a)};
+}
+
+const logLines=[];
+function logEv(s){
+  logLines.unshift(s);if(logLines.length>3)logLines.pop();
+  $('log').innerHTML=logLines.map(l=>'<div class="ev">· '+l+'</div>').join('');
+}
+
+function bootUniverse(seed,startAge){
+  UNI=makeUniverse(seed>>>0);
+  age=startAge||0;
+  runtimeRng=mulberry32((seed^0x2545F491)>>>0);
+  caInit(UNI.seed);
+  // condense epochs: fast-forward the crust toward the given age (capped for sanity)
+  const warm=Math.min(Math.floor(age*CA_RATE),2600);
+  if(warm>0)caStep(warm,UNI.F,UNI.k);else caStep(60,UNI.F,UNI.k);
+  caUpload();
+  logLines.length=0;$('log').innerHTML='';
+  logEv(startAge?'universe restored at a later epoch':'first light');
+  // static uniforms for this universe
+  gl.uniform1f(U.slope,UNI.slope);
+  gl.uniform1f(U.mGain,UNI.mGain);
+  gl.uniform1f(U.lensK,UNI.lensK);
+  gl.uniform1f(U.fogK,UNI.fogK);
+  gl.uniform1f(U.caAmp,UNI.caAmp);
+  gl.uniform1f(U.bandAmt,UNI.bandAmt);
+  gl.uniform1f(U.bandTilt,UNI.bandTilt);
+  gl.uniform3fv(U.palA,UNI.palA);gl.uniform3fv(U.palB,UNI.palB);
+  gl.uniform3fv(U.palC,UNI.palC);gl.uniform3fv(U.palD,UNI.palD);
+  gl.uniform3fv(U.skyLo,UNI.skyLo);gl.uniform3fv(U.skyHi,UNI.skyHi);
+  gl.uniform3fv(U.bandCol,UNI.bandCol);
+  // HUD
+  $('uName').textContent=UNI.name;
+  $('uLaws').textContent='β '+UNI.slope.toFixed(2)+' · skew '+(UNI.skewW>=0?'+':'')+UNI.skewW.toFixed(4);
+  $('uCrust').textContent=UNI.regime+' (F '+UNI.F.toFixed(4)+' · k '+UNI.k.toFixed(4)+')';
+  $('bootName').textContent=UNI.name;
+  $('bootLaws').innerHTML='spectral slope β <b>'+UNI.slope.toFixed(2)+'</b> · arrow of time '
+    +'<b>'+(UNI.skewW>=0?'+':'−')+'</b> (skew '+Math.abs(UNI.skewW).toFixed(4)+')<br>'
+    +'crust regime <b>'+UNI.regime+'</b> · carrying capacity <b>'+UNI.wellMax+' wells</b><br>'
+    +'galactic band: <b>'+(UNI.bandAmt>0?'yes':'no')+'</b> · '
+    +'DNA <b>'+dnaOf()+'</b>';
+  setDnaField();
+  setStat('');
+}
+function setDnaField(){
+  const el=$('dna');
+  if(document.activeElement!==el)el.value=dnaOf();
+  $('uDnaShort').textContent=(UNI.seed>>>0).toString(36);
+}
+function setStat(s,ok){const e=$('stat');e.textContent=s;e.style.color=ok?'var(--green)':'var(--dim)';}
+
+/* ---------------- events: accretion and star birth ---------------- */
+function wellPos(w,out){
+  const a=w.phase+age*w.spin;
+  out[0]=Math.cos(a)*w.rad;
+  out[1]=w.y+Math.sin(age*0.4+w.bob)*0.6;
+  out[2]=Math.sin(a)*w.rad;
+}
+const _pa=[0,0,0],_pb=[0,0,0];
+function stepEvents(dt){
+  const ws=UNI.wells;
+  // accretion: two wells that touch merge into one
+  for(let i=0;i<ws.length;i++){
+    for(let j=i+1;j<ws.length;j++){
+      wellPos(ws[i],_pa);wellPos(ws[j],_pb);
+      const dx=_pa[0]-_pb[0],dy=_pa[1]-_pb[1],dz=_pa[2]-_pb[2];
+      let mmax=0;for(const w of ws)if(w.mass>mmax)mmax=w.mass;
+      const ri=0.35+(ws[i].mass/mmax)*0.5*UNI.mGain, rj=0.35+(ws[j].mass/mmax)*0.5*UNI.mGain;
+      if(dx*dx+dy*dy+dz*dz<Math.pow((ri+rj)*0.85,2)){
+        const big=ws[i].mass>=ws[j].mass?ws[i]:ws[j];
+        const small=big===ws[i]?ws[j]:ws[i];
+        big.mass+=small.mass*0.8;big.flash=2.5;
+        ws.splice(ws.indexOf(small),1);
+        logEv('accretion — two wells become one');
+        blip(140+180*Math.min(big.mass,4),0.5);
+        return;   // one event per frame keeps it legible
+      }
+    }
+  }
+  // birth: the universe keeps making stars up to its carrying capacity
+  if(ws.length<UNI.wellMax && runtimeRng()<UNI.birthRate*dt){
+    const w=spawnWell(runtimeRng,UNI);w.mass*=0.5;w.flash=2.0;
+    ws.push(w);
+    logEv('a star ignites — '+ws.length+' wells');
+    blip(600+runtimeRng()*500,0.35);
+  }
+}
+function packWells(dt){
+  const ws=UNI.wells;
+  let mmax=1e-9;for(const w of ws)if(w.mass>mmax)mmax=w.mass;
+  for(let i=0;i<ws.length&&i<MAXW;i++){
+    const w=ws[i];
+    wellPos(w,_pa);
+    wellsF[i*4+0]=_pa[0];wellsF[i*4+1]=_pa[1];wellsF[i*4+2]=_pa[2];
+    wellsF[i*4+3]=w.mass/mmax;
+    const c=palJS(UNI,0.15+w.colT*0.8), b=0.7+w.flash;
+    colsF[i*3+0]=c[0]*b;colsF[i*3+1]=c[1]*b;colsF[i*3+2]=c[2]*b;
+    w.flash*=Math.exp(-dt*1.6);
+  }
+}
+
+/* ---------------- sound (off by default; blips on events) ---------------- */
+let AC=null;
+function blip(freq,dur){
+  if(!soundOn)return;
+  try{
+    if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)();
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.frequency.value=freq;o.type='sine';
+    g.gain.setValueAtTime(0.08,AC.currentTime);
+    g.gain.exponentialRampToValueAtTime(1e-4,AC.currentTime+dur);
+    o.connect(g).connect(AC.destination);
+    o.start();o.stop(AC.currentTime+dur);
+  }catch(e){}
+}
+
+/* ---------------- camera & input ---------------- */
+let camP=[0,5,20],yaw=Math.PI,pitch=-0.10;
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=1;
+  if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE'].includes(e.code))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.code]=0;});
+let dragging=false,lx=0,ly=0;
+cvs.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;
+  cvs.classList.add('drag');cvs.setPointerCapture(e.pointerId);});
+cvs.addEventListener('pointerup',()=>{dragging=false;cvs.classList.remove('drag');});
+cvs.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  yaw-=(e.clientX-lx)*0.0032;pitch-=(e.clientY-ly)*0.0032;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  lx=e.clientX;ly=e.clientY;
+});
+
+/* ---------------- controls ---------------- */
+$('t').addEventListener('input',e=>{timeScale=parseFloat(e.target.value);
+  $('t_l').textContent=timeScale.toFixed(1)+'×';});
+$('bNew').onclick=()=>{bootUniverse((Math.random()*4294967296)>>>0,0);flashBoot();};
+$('bCopy').onclick=()=>{
+  const d=dnaOf();$('dna').value=d;
+  const done=()=>setStat('DNA copied — share it, anyone can boot your universe',1);
+  if(navigator.clipboard&&navigator.clipboard.writeText)
+    navigator.clipboard.writeText(d).then(done,()=>{$('dna').select();setStat('select + ctrl-C to copy');});
+  else{$('dna').select();try{document.execCommand('copy');done();}catch(e){setStat('select + ctrl-C to copy');}}
+};
+$('bLoad').onclick=()=>{
+  const p=parseDna($('dna').value);
+  if(!p){setStat('that is not a valid AEON code');return;}
+  bootUniverse(p.seed,p.age);flashBoot();
+};
+$('bSave').onclick=()=>{
+  try{
+    localStorage.setItem('aeon_save',JSON.stringify({dna:dnaOf(),cam:camP,yaw,pitch}));
+    setStat('saved — '+dnaOf(),1);
+  }catch(e){setStat('storage unavailable here — copy the DNA instead, it is the save');}
+};
+$('bResume').onclick=()=>{
+  try{
+    const s=JSON.parse(localStorage.getItem('aeon_save'));
+    const p=s&&parseDna(s.dna);
+    if(!p){setStat('no saved universe found');return;}
+    bootUniverse(p.seed,p.age);
+    if(s.cam&&s.cam.length===3){camP=s.cam.slice();yaw=s.yaw||yaw;pitch=s.pitch||pitch;}
+    flashBoot();
+  }catch(e){setStat('storage unavailable here — paste a DNA code instead');}
+};
+$('bSound').onclick=e=>{soundOn=!soundOn;
+  e.target.textContent='Sound: '+(soundOn?'on':'off');
+  e.target.classList.toggle('on',soundOn);
+  if(soundOn)blip(440,0.2);};
+$('bLens').onclick=e=>{lens^=1;e.target.classList.toggle('on',!!lens);
+  e.target.textContent='Lensing: '+(lens?'on':'off');};
+$('bDrift').onclick=e=>{drift^=1;e.target.classList.toggle('on',!!drift);
+  e.target.textContent='Drift: '+(drift?'on':'off');};
+
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+  drift=0;$('bDrift').classList.remove('on');$('bDrift').textContent='Drift: off';
+}
+
+let bootTimer=null;
+function flashBoot(){
+  boot.classList.remove('gone');
+  clearTimeout(bootTimer);
+  bootTimer=setTimeout(()=>boot.classList.add('gone'),3200);
+}
+boot.addEventListener('click',()=>boot.classList.add('gone'));
+
+/* ---------------- resize ---------------- */
+let quality=0.7,W=1,H=1;
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,1.5);
+  W=Math.max(2,Math.floor(cvs.clientWidth*dpr*quality));
+  H=Math.max(2,Math.floor(cvs.clientHeight*dpr*quality));
+  cvs.width=W;cvs.height=H;gl.viewport(0,0,W,H);
+}
+addEventListener('resize',resize);
+
+/* ---------------- main loop ---------------- */
+let last=performance.now(),fpsSm=60,caCarry=0,deadT=0;
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05);last=now;
+  const wdt=dt*timeScale;
+  age+=wdt;
+
+  // living crust advances with world time
+  caCarry+=wdt*CA_RATE;
+  const steps=Math.min(caCarry|0,8);
+  if(steps>0){caStep(steps,UNI.F,UNI.k);caCarry-=steps;
+    const mx=caUpload();
+    if(mx<0.03){deadT+=dt;if(deadT>4){caInit((UNI.seed^((age*97)|0))>>>0);deadT=0;logEv('the crust reseeds itself');}}
+    else deadT=0;
+  }
+
+  if(wdt>0)stepEvents(wdt);
+  packWells(dt);
+
+  // skew arrow of time: the terrain domain slowly rotates + shears
+  const ang=UNI.skewW*age;
+  const ca_=Math.cos(ang),sa_=Math.sin(ang),sh_=UNI.shear;
+  // column-major mat2 of R(ang) * [[1,sh],[0,1]]
+  const m00=ca_, m10=sa_, m01=ca_*sh_-sa_, m11=sa_*sh_+ca_;
+  gl.uniformMatrix2fv(U.warp,false,[m00,m10,m01,m11]);
+
+  // camera
+  const cf=[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)];
+  const cr=[Math.sin(yaw-1.5708),0,Math.cos(yaw-1.5708)];
+  const cu=[cr[1]*cf[2]-cr[2]*cf[1],cr[2]*cf[0]-cr[0]*cf[2],cr[0]*cf[1]-cr[1]*cf[0]];
+  let sp=(keys['ShiftLeft']||keys['ShiftRight']?26:11)*dt,moved=false;
+  const mv=(v,s)=>{camP[0]+=v[0]*s;camP[1]+=v[1]*s;camP[2]+=v[2]*s;moved=true;};
+  if(keys['KeyW'])mv(cf,sp);if(keys['KeyS'])mv(cf,-sp);
+  if(keys['KeyD'])mv(cr,sp);if(keys['KeyA'])mv(cr,-sp);
+  if(keys['KeyE'])mv([0,1,0],sp);if(keys['KeyQ'])mv([0,1,0],-sp);
+  if(drift&&!moved&&!dragging){mv(cf,3.0*dt);yaw+=0.04*dt;}
+  if(camP[1]<-2)camP[1]=-2;
+
+  // draw
+  gl.uniform2f(U.iRes,W,H);
+  gl.uniform3fv(U.camP,camP);gl.uniform3fv(U.camR,cr);
+  gl.uniform3fv(U.camU,cu);gl.uniform3fv(U.camF,cf);
+  gl.uniform1i(U.nWell,Math.min(UNI.wells.length,MAXW));
+  gl.uniform1i(U.doLens,lens);
+  gl.uniform4fv(U.wells,wellsF);
+  gl.uniform3fv(U.wellCol,colsF);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+
+  // hud
+  fpsSm=fpsSm*0.92+(1/Math.max(dt,1e-4))*0.08;
+  $('fps').textContent=Math.round(fpsSm)+' fps';
+  $('uAge').textContent='≈ '+Math.round(age*12).toLocaleString()+' Myr';
+  $('uWells').textContent=UNI.wells.length+' / '+UNI.wellMax;
+  setDnaField();
+
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- boot ---------------- */
+resize();
+bootUniverse((Math.random()*4294967296)>>>0,0);
+setTimeout(()=>{
+  ['hud','ctl','help'].forEach(id=>$(id).hidden=false);
+  flashBoot();
+  requestAnimationFrame(frame);
+},400);
+</script>

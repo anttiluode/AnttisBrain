@@ -1,0 +1,424 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>RAJAPINTA BOX — you are inside your own boundary</title>
+<style>
+  :root{
+    --void:#04060b; --ink:#c9d4e0; --amber:#e8b13a; --amber-dim:#8a6d2c;
+    --cyan:#54d2e2; --line:#1b2436; --dim:#67788d; --green:#4ec98f; --red:#e06060;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--void);overflow:hidden;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink)}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #gl.drag{cursor:grabbing}
+  .panel{position:fixed;background:rgba(6,9,16,.74);border:1px solid var(--line);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #hud{top:14px;left:14px;padding:12px 14px;min-width:230px;font-size:11px;line-height:1.7}
+  #hud .ttl{color:var(--amber);letter-spacing:.16em;font-size:10px;
+    text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
+  #hud .ttl b{color:var(--amber-dim);font-weight:400}
+  #hud .row{display:flex;justify-content:space-between;color:#8494a8;gap:14px}
+  #hud .row span{color:var(--ink)}
+  #hud .row .k{color:var(--dim)}
+  #ctl{bottom:14px;left:14px;padding:12px 14px;width:280px;font-size:11px}
+  #ctl h2{margin:0 0 9px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--cyan);font-weight:600}
+  .field{margin:8px 0}
+  .field label{display:flex;justify-content:space-between;color:#8494a8;margin-bottom:4px}
+  .field label var{color:var(--ink);font-style:normal}
+  input[type=range]{width:100%;height:2px;-webkit-appearance:none;appearance:none;
+    background:var(--line);outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;
+    background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  .btns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  button{flex:1;min-width:60px;padding:7px 4px;background:transparent;color:var(--ink);
+    border:1px solid var(--line);font:inherit;font-size:10px;letter-spacing:.05em;
+    cursor:pointer;transition:.15s;text-transform:uppercase}
+  button:hover{border-color:var(--amber-dim);color:var(--amber)}
+  button.on{border-color:var(--cyan);color:var(--cyan)}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  #stat{margin-top:7px;font-size:10px;color:var(--dim);min-height:13px}
+  #help{bottom:14px;right:14px;padding:11px 13px;font-size:10.5px;line-height:1.85;
+    color:#73859a;text-align:right;max-width:220px}
+  #help b{color:var(--amber);font-weight:400}
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--void);z-index:9;flex-direction:column;gap:14px;text-align:center;
+    padding:24px;transition:opacity 1s}
+  #boot.gone{opacity:0;pointer-events:none}
+  #boot .big{color:var(--amber);letter-spacing:.28em;font-size:18px;text-transform:uppercase}
+  #boot .sub{color:#8494a8;font-size:11px;line-height:1.9;max-width:400px}
+  #boot.err .big{color:var(--red)}
+  @media (max-width:680px){
+    #ctl{width:calc(100% - 28px)} #hud{font-size:10px;min-width:0} #help{display:none}
+  }
+</style>
+
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <div class="big">Rajapinta Box</div>
+  <div class="sub">You are inside a cube. All six walls are your webcam, live.
+    The moons orbit between you and your image, and their mass bends the rays
+    your eye sends toward the boundary — so your own face drags and warps
+    as they pass, exactly the way the ground did.<br><br>
+    The browser will ask for camera permission. Deny it and you get a
+    moving test pattern instead — the physics is identical.</div>
+</div>
+
+<div id="hud" class="panel" hidden>
+  <div class="ttl"><span>Instrument</span><b id="fps">— fps</b></div>
+  <div class="row"><span class="k">boundary</span><span id="src">—</span></div>
+  <div class="row"><span class="k">moons</span><span id="nMoon">—</span></div>
+  <div class="row"><span class="k">lens strength</span><span id="lensV">—</span></div>
+  <div class="row"><span class="k">position</span><span id="pos">—</span></div>
+</div>
+
+<div id="ctl" class="panel" hidden>
+  <h2>The bulk</h2>
+  <div class="field"><label>Moons <var id="n_l">7</var></label>
+    <input id="n" type="range" min="1" max="16" step="1" value="7"></div>
+  <div class="field"><label>Mass gain <var id="m_l">1.0</var></label>
+    <input id="m" type="range" min="0.2" max="2.5" step="0.05" value="1.0"></div>
+  <div class="field"><label>Lensing <var id="g_l">1.0</var></label>
+    <input id="g" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+  <div class="btns">
+    <button id="bMirror" class="on">Mirror moons: on</button>
+    <button id="bSrc">Test pattern</button>
+  </div>
+  <div class="btns">
+    <button id="bReseed">Reseed orbits</button>
+    <button id="bIdle" class="on">Idle spin: on</button>
+  </div>
+  <div id="stat"></div>
+</div>
+
+<div id="help" class="panel" hidden>
+  <b>W A S D</b> move · <b>Q E</b> down/up<br>
+  drag to look · <b>shift</b> boost<br>
+  you cannot leave the box —<br>the box is the world
+</div>
+
+<video id="vid" style="display:none" playsinline muted></video>
+
+<script type="text/javascript">
+'use strict';
+const $=id=>document.getElementById(id);
+const cvs=$('gl'), boot=$('boot');
+const gl=cvs.getContext('webgl2',{antialias:false,powerPreference:'high-performance'});
+if(!gl){boot.classList.add('err');boot.innerHTML='<div class="big">No WebGL2</div><div class="sub">This box needs a WebGL2 browser (recent Chrome, Firefox, Edge, Safari).</div>';}
+
+const MAXW=16;
+const HALF=[10.0,7.0,10.0];   // box half-extents — must match the shader constant
+
+const VERT=`#version 300 es
+void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0.0,1.0);}`;
+
+const FRAG=`#version 300 es
+precision highp float;
+out vec4 O;
+uniform vec2 iRes;
+uniform vec3 camP,camR,camU,camF;
+uniform int nWell,doMirror;
+uniform vec4 wells[${MAXW}];    // xyz pos, w mass (0..1)
+uniform vec3 wellCol[${MAXW}];
+uniform float mGain,lensK,time;
+uniform sampler2D camTex;
+
+const vec3 HALF=vec3(10.0,7.0,10.0);
+
+// distance to the nearest wall, from inside the box
+float dWall(vec3 p){ vec3 q=HALF-abs(p); return min(q.x,min(q.y,q.z)); }
+
+// which face, and its uv — every face shows the boundary image
+vec3 wallSample(vec3 p){
+  vec3 a=abs(p)/HALF;
+  vec2 uv;
+  if(a.x>=a.y&&a.x>=a.z)      uv=vec2(p.z/HALF.z*sign(p.x), p.y/HALF.y);
+  else if(a.y>=a.x&&a.y>=a.z) uv=vec2(p.x/HALF.x, p.z/HALF.z*sign(p.y));
+  else                        uv=vec2(-p.x/HALF.x*sign(p.z), p.y/HALF.y);
+  uv=uv*0.5+0.5;
+  uv.x=1.0-uv.x;                       // selfie mirror
+  return texture(camTex,uv).rgb;
+}
+
+void main(){
+  vec2 uv0=(gl_FragCoord.xy-0.5*iRes)/iRes.y;
+  vec3 ro=camP;
+  vec3 rd=normalize(uv0.x*camR+uv0.y*camU+1.5*camF);
+  vec3 p=ro;
+  vec3 glow=vec3(0.0);
+  vec3 tint=vec3(1.0);
+  float trav=0.0;
+  int bounces=0;
+  vec3 col=vec3(0.0);
+  bool done=false;
+
+  for(int i=0;i<110;i++){
+    // gravitational lensing: bend the ray toward every well
+    vec3 pull=vec3(0.0);
+    for(int k=0;k<${MAXW};k++){
+      if(k>=nWell)break;
+      vec3 dv=wells[k].xyz-p; float r2=dot(dv,dv)+0.5;
+      pull+=dv*(wells[k].w*mGain/(r2*r2));
+    }
+    rd=normalize(rd+pull*0.06*lensK);
+
+    // emission: the screensaver formula, as light in the room
+    float dm=1e9;
+    for(int k=0;k<${MAXW};k++){
+      if(k>=nWell)break;
+      float r=length(p-wells[k].xyz);
+      float e=wells[k].w*mGain/(r+1.0);
+      glow+=wellCol[k]*e*e*0.012;
+      dm=min(dm,r-(0.5+wells[k].w*0.9*mGain));
+    }
+
+    float dw=dWall(p);
+    if(dm<0.004){
+      if(doMirror==1&&bounces<2){
+        // find the sphere we hit, reflect off it — the moon mirrors the boundary
+        for(int k=0;k<${MAXW};k++){
+          if(k>=nWell)break;
+          float rr=0.5+wells[k].w*0.9*mGain;
+          vec3 dv=p-wells[k].xyz;
+          if(length(dv)-rr<0.02){
+            vec3 n=normalize(dv);
+            rd=reflect(rd,n);
+            p=wells[k].xyz+n*(rr+0.02);
+            tint*=0.80;
+            bounces++;
+            break;
+          }
+        }
+        continue;
+      }else{
+        col=vec3(0.0);       // dark core; the glow carries it
+        done=true;break;
+      }
+    }
+    if(dw<0.004){
+      vec3 wc=wallSample(p);
+      // walls lit by the wells: L = sum m/(r+1)
+      float L=0.0;
+      for(int k=0;k<${MAXW};k++){
+        if(k>=nWell)break;
+        L+=wells[k].w*mGain/(length(p-wells[k].xyz)+1.0);
+      }
+      float fog=exp(-trav*0.012);
+      col=wc*tint*(0.30+1.1*min(L,1.6))*fog;
+      done=true;break;
+    }
+    float step_=max(min(dw,dm)*0.9,0.02);
+    p+=rd*step_;
+    trav+=step_;
+    if(trav>120.0)break;
+  }
+  if(!done)col=vec3(0.0);
+  col+=glow;
+  col=col/(col+1.0);
+  col=pow(col,vec3(0.4545));
+  O=vec4(col,1.0);
+}`;
+
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
+let prog,U={};
+try{
+  prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw gl.getProgramInfoLog(prog);
+  gl.useProgram(prog);
+  ['iRes','camP','camR','camU','camF','nWell','doMirror','mGain','lensK','time',
+   'camTex','wells','wellCol'].forEach(k=>U[k]=gl.getUniformLocation(prog,k));
+  gl.uniform1i(U.camTex,0);
+}catch(err){
+  boot.classList.add('err');
+  boot.innerHTML='<div class="big">Shader error</div><div class="sub">'+String(err).slice(0,300)+'</div>';
+  throw err;
+}
+gl.bindVertexArray(gl.createVertexArray());
+
+/* ---------------- the boundary: webcam texture with test-pattern fallback ---------------- */
+const vid=$('vid');
+let camOK=false, useCam=true;
+const camTex=gl.createTexture();
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D,camTex);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+  navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}})
+    .then(st=>{vid.srcObject=st;vid.play();camOK=true;setSrcLabel();})
+    .catch(()=>{useCam=false;camOK=false;setSrcLabel();});
+}else{useCam=false;setSrcLabel();}
+
+// fallback boundary: the old slapstack test pattern — gradient + orbiting striped disk + occluder
+const pat=document.createElement('canvas');pat.width=256;pat.height=256;
+const pctx=pat.getContext('2d');
+function drawPattern(t){
+  const g=pctx.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#2a3550');g.addColorStop(1,'#6a4a70');
+  pctx.fillStyle=g;pctx.fillRect(0,0,256,256);
+  const cx=128+64*Math.cos(0.6*t),cy=128+48*Math.sin(0.9*t);
+  for(let s=0;s<24;s++){
+    pctx.fillStyle=s%2?'#d8c890':'#705838';
+    pctx.beginPath();
+    pctx.arc(cx,cy,46-s*1.9,0,7);pctx.fill();
+  }
+  pctx.fillStyle='#101018';pctx.fillRect(176,56,40,40);
+  pctx.fillStyle='#c9d4e0';pctx.font='14px monospace';
+  pctx.fillText('no camera — pattern',56,240);
+}
+function setSrcLabel(){
+  $('src').textContent=useCam&&camOK?'webcam live':'test pattern';
+  $('bSrc').textContent=useCam?'Test pattern':'Use camera';
+  setStat(useCam&&camOK?'the walls are you':'');
+}
+function uploadBoundary(t){
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,camTex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  if(useCam&&camOK&&vid.readyState>=2){
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,vid);
+  }else{
+    drawPattern(t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,pat);
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+}
+
+/* ---------------- moons: Lissajous orbits inside the box ---------------- */
+let P={n:7,mGain:1.0,lensK:1.0},mirror=1,idle=1;
+const wellsF=new Float32Array(MAXW*4), colsF=new Float32Array(MAXW*3);
+let moons=[];
+function reseed(){
+  moons=[];
+  for(let i=0;i<MAXW;i++){
+    const m=-Math.log(1e-6+Math.random());
+    moons.push({
+      m, fx:0.05+Math.random()*0.22, fy:0.05+Math.random()*0.22, fz:0.05+Math.random()*0.22,
+      px:Math.random()*6.283, py:Math.random()*6.283, pz:Math.random()*6.283,
+      ax:0.35+Math.random()*0.45, ay:0.35+Math.random()*0.45, az:0.35+Math.random()*0.45,
+      hue:Math.random()
+    });
+  }
+  const mx=Math.max(...moons.map(w=>w.m));
+  for(const w of moons)w.m/=mx;
+}
+reseed();
+function moonCol(h){
+  return[0.55+0.45*Math.cos(6.283*(h)),0.55+0.45*Math.cos(6.283*(h+0.33)),0.55+0.45*Math.cos(6.283*(h+0.66))];
+}
+function packMoons(t){
+  for(let i=0;i<MAXW;i++){
+    const w=moons[i];
+    wellsF[i*4+0]=HALF[0]*w.ax*Math.sin(w.fx*t+w.px);
+    wellsF[i*4+1]=HALF[1]*w.ay*Math.sin(w.fy*t+w.py);
+    wellsF[i*4+2]=HALF[2]*w.az*Math.sin(w.fz*t+w.pz);
+    wellsF[i*4+3]=w.m;
+    const c=moonCol(w.hue);
+    colsF[i*3+0]=c[0];colsF[i*3+1]=c[1];colsF[i*3+2]=c[2];
+  }
+}
+
+/* ---------------- camera & input ---------------- */
+let camP=[0,0,0],yaw=0,pitch=0;
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=1;
+  if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE'].includes(e.code))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.code]=0;});
+let dragging=false,lx=0,ly=0;
+cvs.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;
+  cvs.classList.add('drag');cvs.setPointerCapture(e.pointerId);boot.classList.add('gone');});
+cvs.addEventListener('pointerup',()=>{dragging=false;cvs.classList.remove('drag');});
+cvs.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  yaw-=(e.clientX-lx)*0.0032;pitch-=(e.clientY-ly)*0.0032;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  lx=e.clientX;ly=e.clientY;
+});
+
+/* ---------------- controls ---------------- */
+function setStat(s){$('stat').textContent=s;}
+function bind(id,lab,fn){const el=$(id);el.addEventListener('input',()=>{fn(parseFloat(el.value));$(lab).textContent=el.value;});}
+bind('n','n_l',v=>{P.n=v|0;});
+bind('m','m_l',v=>{P.mGain=v;});
+bind('g','g_l',v=>{P.lensK=v;});
+$('bMirror').onclick=e=>{mirror^=1;e.target.classList.toggle('on',!!mirror);
+  e.target.textContent='Mirror moons: '+(mirror?'on':'off');};
+$('bSrc').onclick=()=>{useCam=!useCam;setSrcLabel();};
+$('bReseed').onclick=reseed;
+$('bIdle').onclick=e=>{idle^=1;e.target.classList.toggle('on',!!idle);
+  e.target.textContent='Idle spin: '+(idle?'on':'off');};
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){
+  idle=0;$('bIdle').classList.remove('on');$('bIdle').textContent='Idle spin: off';
+}
+
+/* ---------------- resize ---------------- */
+let quality=0.7,W=1,H=1;
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,1.5);
+  W=Math.max(2,Math.floor(cvs.clientWidth*dpr*quality));
+  H=Math.max(2,Math.floor(cvs.clientHeight*dpr*quality));
+  cvs.width=W;cvs.height=H;gl.viewport(0,0,W,H);
+}
+addEventListener('resize',resize);
+
+/* ---------------- loop ---------------- */
+let last=performance.now(),fpsSm=60,t0=performance.now();
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05);last=now;
+  const t=(now-t0)/1000;
+
+  uploadBoundary(t);
+  packMoons(t);
+
+  const cf=[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)];
+  const cr=[Math.sin(yaw-1.5708),0,Math.cos(yaw-1.5708)];
+  const cu=[cr[1]*cf[2]-cr[2]*cf[1],cr[2]*cf[0]-cr[0]*cf[2],cr[0]*cf[1]-cr[1]*cf[0]];
+  let sp=(keys['ShiftLeft']||keys['ShiftRight']?14:6)*dt,moved=false;
+  const mv=(v,s)=>{camP[0]+=v[0]*s;camP[1]+=v[1]*s;camP[2]+=v[2]*s;moved=true;};
+  if(keys['KeyW'])mv(cf,sp);if(keys['KeyS'])mv(cf,-sp);
+  if(keys['KeyD'])mv(cr,sp);if(keys['KeyA'])mv(cr,-sp);
+  if(keys['KeyE'])mv([0,1,0],sp);if(keys['KeyQ'])mv([0,1,0],-sp);
+  if(idle&&!moved&&!dragging)yaw+=0.05*dt;
+  // you cannot leave the box — the box is the world
+  for(let i=0;i<3;i++)camP[i]=Math.max(-HALF[i]+0.6,Math.min(HALF[i]-0.6,camP[i]));
+
+  gl.uniform2f(U.iRes,W,H);
+  gl.uniform3fv(U.camP,camP);gl.uniform3fv(U.camR,cr);
+  gl.uniform3fv(U.camU,cu);gl.uniform3fv(U.camF,cf);
+  gl.uniform1i(U.nWell,P.n);
+  gl.uniform1i(U.doMirror,mirror);
+  gl.uniform1f(U.mGain,P.mGain);
+  gl.uniform1f(U.lensK,P.lensK);
+  gl.uniform1f(U.time,t);
+  gl.uniform4fv(U.wells,wellsF);
+  gl.uniform3fv(U.wellCol,colsF);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+
+  fpsSm=fpsSm*0.92+(1/Math.max(dt,1e-4))*0.08;
+  $('fps').textContent=Math.round(fpsSm)+' fps';
+  $('nMoon').textContent=P.n;
+  $('lensV').textContent=P.lensK.toFixed(2);
+  $('pos').textContent=camP.map(v=>v.toFixed(1)).join(', ');
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+setSrcLabel();
+setTimeout(()=>{
+  ['hud','ctl','help'].forEach(id=>$(id).hidden=false);
+  setTimeout(()=>boot.classList.add('gone'),4200);
+  requestAnimationFrame(frame);
+},350);
+</script>
