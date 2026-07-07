@@ -67,6 +67,18 @@ The `Σrₛ` slider is a real mass dial; the geodesic-resolution slider trades s
 
 Honest limits: this is the *optical-metric* formulation — exact for light bending and rings to the order that matters, but it models the deflection of light only, not time dilation or redshift. A clock isn't ticking slow in there. And the "ring geometry" inside a small box is dominated by strong-field capture, which is physically correct but not the clean thin-lens ring you'd get with a distant source.
 
+### **5. index.html — the holographic cascade**
+
+The capstone of the boundary-bulk experiments. You sit at the centre of a cube, but here, the holographic principle is a toggle switch. The engine lets you explicitly swap which part of the universe holds information and which part reflects it, giving you three distinct realities built from the exact same geometry.
+
+- **Boundary mode:** The walls are your live webcam; the moons are curved mirrors that lens and reflect the boundary. You watch your face drag across the geometry of the bulk.
+- **Projection mode (The swap):** The moons carry the image; the walls become pure mirrors. The information emanates from the bulk and the boundary merely echoes it.
+- **Cascade mode:** The fractal collapse. The moons carry your face *and* mirror each other simultaneously. Every ray of light scatters ball to ball to wall in a recursive loop. You are looking at a hall of mirrors built entirely out of your own scattered image, folded through gravity.
+
+The shader logic for Cascade mode breaks the usual rule of rendering where an object is either a light source or a mirror. Here, the moons are both, endlessly accumulating fractions of the observer into the void.
+
+*Like the other boxes, this asks for camera permission. Deny it and it falls back to a moving test pattern with identical physics. Nothing leaves your machine.*
+
 ---
 
 ## The mathematics, gathered
@@ -80,7 +92,7 @@ The four files are four readings of the same handful of objects:
 - **The antisymmetric / skew operator.** `A = (Cτ − Cτᵀ)/2` — the skew half of a lag-covariance carries temporal direction. In the forge it becomes the signed rotation-shear that gives each universe an arrow of time you can see in the drift of the ground.
 - **Gravitational lensing, two ways.** The fake version bends rays by `Σ m·dv/r⁴` — cheap, tunable, "looks like gravity." The real version integrates null geodesics through an optical metric `n = 1 + Σ rₛ/r`, recovering the exact `4GM/c²b` deflection, Einstein rings at the right radius, and photon-sphere capture. The GR file exists to show the difference between "looks bent" and "bends by the correct amount."
 
-The wider connection the theory kept circling — the **holographic** one — is most literal in the box: the walls are a boundary, the moons are a bulk, and the light that reaches your eye is the boundary seen through the bulk's curvature. Swapping which one carries the image and which one reflects it gives genuinely different worlds from the same geometry. That swap is where these go next.
+The wider connection the theory kept circling — the **holographic** one — is most literal in the box: the walls are a boundary, the moons are a bulk, and the light that reaches your eye is the boundary seen through the bulk's curvature. Swapping which one carries the image and which one reflects it gives genuinely different worlds from the same geometry. That swap is exactly what **index.html** executes, turning a spatial limitation into a fractal cascade.
 
 ---
 
