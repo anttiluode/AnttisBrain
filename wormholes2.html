@@ -1,0 +1,484 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>RAJAPINTA BOX — boundary · projection · cascade + throats</title>
+<style>
+  :root{
+    --void:#04060b; --ink:#c9d4e0; --amber:#e8b13a; --amber-dim:#8a6d2c;
+    --cyan:#54d2e2; --line:#1b2436; --dim:#67788d; --green:#4ec98f; --red:#e06060;
+    --throat:#a855f7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--void);overflow:hidden;
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink)}
+  #gl{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+  #gl.drag{cursor:grabbing}
+  .panel{position:fixed;background:rgba(6,9,16,.74);border:1px solid var(--line);
+    backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #hud{top:14px;left:14px;padding:12px 14px;min-width:236px;font-size:11px;line-height:1.7}
+  #hud .ttl{color:var(--amber);letter-spacing:.16em;font-size:10px;
+    text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between}
+  #hud .row{display:flex;justify-content:space-between;color:#8494a8;gap:14px}
+  #hud .row span{color:var(--ink)}
+  #hud .row .k{color:var(--dim)}
+  #hud .note{margin-top:7px;border-top:1px solid var(--line);padding-top:6px;
+    color:var(--dim);font-size:10px;line-height:1.6}
+  #ctl{bottom:14px;left:14px;padding:12px 14px;width:320px;font-size:11px}
+  #ctl h2{margin:0 0 9px;font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--cyan);font-weight:600}
+  .modes{display:flex;gap:6px;margin-bottom:11px}
+  .modes button{flex:1}
+  .field{margin:8px 0}
+  .field label{display:flex;justify-content:space-between;color:#8494a8;margin-bottom:4px}
+  .field label var{color:var(--ink);font-style:normal}
+  input[type=range]{width:100%;height:2px;-webkit-appearance:none;appearance:none;
+    background:var(--line);outline:none;margin:6px 0}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+    border-radius:50%;background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border-radius:50%;
+    background:var(--amber);cursor:pointer;border:2px solid var(--void)}
+  .btns{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+  button{flex:1;min-width:56px;padding:7px 4px;background:transparent;color:var(--ink);
+    border:1px solid var(--line);font:inherit;font-size:10px;letter-spacing:.05em;
+    cursor:pointer;transition:.15s;text-transform:uppercase}
+  button:hover{border-color:var(--amber-dim);color:var(--amber)}
+  button.on{border-color:var(--cyan);color:var(--cyan)}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  #stat{margin-top:7px;font-size:10px;color:var(--dim);min-height:13px}
+  #help{bottom:14px;right:14px;padding:11px 13px;font-size:10.5px;line-height:1.85;
+    color:#73859a;text-align:right;max-width:222px}
+  #help b{color:var(--amber);font-weight:400}
+  #boot{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:var(--void);z-index:9;flex-direction:column;gap:14px;text-align:center;
+    padding:24px;transition:opacity 1s}
+  #boot.gone{opacity:0;pointer-events:none}
+  #boot .big{color:var(--amber);letter-spacing:.24em;font-size:17px;text-transform:uppercase}
+  #boot .sub{color:#8494a8;font-size:11px;line-height:1.95;max-width:440px}
+  #boot .sub b{color:var(--cyan);font-weight:400}
+  #boot.err .big{color:var(--red)}
+  @media (max-width:680px){
+    #ctl{width:calc(100% - 28px)} #hud{font-size:10px;min-width:0} #help{display:none}
+  }
+</style>
+
+<canvas id="gl"></canvas>
+
+<div id="boot">
+  <div class="big">RAJAPINTA BOX — with throats</div>
+  <div class="sub">Gradient wormhole analogs between moons.<br>
+    Light and frozen past tunnel through steep gradients.<br>
+    Fly into a bright throat and press <b>F</b> to descend.<br><br>
+    Allow camera or use test pattern.</div>
+</div>
+
+<div id="hud" class="panel" hidden>
+  <div class="ttl"><span>Instrument</span><b id="fps">— fps</b></div>
+  <div class="row"><span class="k">mode</span><span id="modeV">—</span></div>
+  <div class="row"><span class="k">boundary</span><span id="src">—</span></div>
+  <div class="row"><span class="k">moons</span><span id="nMoon">—</span></div>
+  <div class="row"><span class="k">throats</span><span id="throatV">0</span></div>
+  <div class="row"><span class="k">lensing</span><span id="lensV">—</span></div>
+  <div class="row"><span class="k">position</span><span id="pos">—</span></div>
+  <div class="note" id="modeNote">—</div>
+</div>
+
+<div id="ctl" class="panel" hidden>
+  <h2>The room</h2>
+  <div class="modes">
+    <button id="m0" class="on">Boundary</button>
+    <button id="m1">Projection</button>
+    <button id="m2">Cascade</button>
+  </div>
+  <div class="field"><label>Moons <var id="n_l">7</var></label>
+    <input id="n" type="range" min="1" max="14" step="1" value="7"></div>
+  <div class="field"><label>Mass gain <var id="m_l">1.0</var></label>
+    <input id="m" type="range" min="0.2" max="2.5" step="0.05" value="1.0"></div>
+  <div class="field"><label>Lensing <var id="g_l">1.0</var></label>
+    <input id="g" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+  <div class="field"><label>Throat strength <var id="t_l">1.0</var></label>
+    <input id="throat" type="range" min="0" max="3" step="0.05" value="1.0"></div>
+  <div class="btns">
+    <button id="bSrc">Test pattern</button>
+    <button id="bReseed">Reseed orbits</button>
+    <button id="bIdle" class="on">Idle spin: on</button>
+  </div>
+  <div id="stat"></div>
+</div>
+
+<div id="help" class="panel" hidden>
+  <b>W A S D</b> move · <b>Q E</b> down/up<br>
+  drag to look · <b>shift</b> boost<br>
+  <b>F</b> descend throat · <b>B</b> ascend<br>
+  the box is the world
+</div>
+
+<video id="vid" style="display:none" playsinline muted></video>
+
+<script type="text/javascript">
+'use strict';
+const $=id=>document.getElementById(id);
+const cvs=$('gl'), boot=$('boot');
+const gl=cvs.getContext('webgl2',{antialias:false,powerPreference:'high-performance'});
+if(!gl){boot.classList.add('err');boot.innerHTML='<div class="big">No WebGL2</div><div class="sub">This box needs a WebGL2 browser (recent Chrome, Firefox, Edge, Safari).</div>';}
+
+const MAXW=14;
+const HALF=[10.0,7.0,10.0];
+
+const VERT=`#version 300 es
+void main(){vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2);gl_Position=vec4(p*2.0-1.0,0.0,1.0);}`;
+
+const FRAG=`#version 300 es
+precision highp float;
+out vec4 O;
+uniform vec2 iRes;
+uniform vec3 camP,camR,camU,camF;
+uniform int nWell,mode,doLens,maxBnc;
+uniform vec4 wells[${MAXW}];
+uniform vec3 wellCol[${MAXW}];
+uniform float mGain,lensK,throatK;
+uniform sampler2D camTex;
+uniform int layerDepth;
+
+const vec3 HALF=vec3(10.0,7.0,10.0);
+
+float dWall(vec3 p){ vec3 q=HALF-abs(p); return min(q.x,min(q.y,q.z)); }
+vec3 wallNormal(vec3 p){
+  vec3 a=abs(p)/HALF;
+  if(a.x>=a.y&&a.x>=a.z) return vec3(-sign(p.x),0.0,0.0);
+  if(a.y>=a.x&&a.y>=a.z) return vec3(0.0,-sign(p.y),0.0);
+  return vec3(0.0,0.0,-sign(p.z));
+}
+vec3 wallImg(vec3 p){
+  vec3 a=abs(p)/HALF; vec2 uv;
+  if(a.x>=a.y&&a.x>=a.z)      uv=vec2(p.z/HALF.z*sign(p.x), p.y/HALF.y);
+  else if(a.y>=a.x&&a.y>=a.z) uv=vec2(p.x/HALF.x, p.z/HALF.z*sign(p.y));
+  else                        uv=vec2(-p.x/HALF.x*sign(p.z), p.y/HALF.y);
+  uv=uv*0.5+0.5; uv.x=1.0-uv.x;
+  return texture(camTex,uv).rgb;
+}
+vec3 sphereImg(vec3 n){
+  float u=0.5+atan(n.z,n.x)*0.159155;
+  float v=0.5-asin(clamp(n.y,-1.0,1.0))*0.318310;
+  u=1.0-u;
+  return texture(camTex,vec2(u,v)).rgb;
+}
+
+float throatPull(vec3 x, vec4 w1, vec4 w2){
+  vec3 d1 = w1.xyz - x;
+  vec3 d2 = w2.xyz - x;
+  float r1 = length(d1)+0.01;
+  float r2 = length(d2)+0.01;
+  return dot(normalize(d1), normalize(d2)) * (w1.w * w2.w) / (r1 * r2);
+}
+
+void main(){
+  vec2 uv0=(gl_FragCoord.xy-0.5*iRes)/iRes.y;
+  vec3 x=camP;
+  vec3 rd=normalize(uv0.x*camR+uv0.y*camU+1.5*camF);
+  vec3 glow=vec3(0.0), tint=vec3(1.0), accum=vec3(0.0);
+  float trav=0.0;
+  int bnc=0;
+  vec3 col=vec3(0.0);
+  bool done=false;
+  float throatFactor = 0.0;
+
+  for(int i=0;i<150;i++){
+    if(doLens==1){
+      vec3 pull=vec3(0.0);
+      for(int k=0;k<nWell;k++){
+        vec3 dv=wells[k].xyz-x; float r2=dot(dv,dv)+0.5;
+        pull+=dv*(wells[k].w*mGain/(r2*r2));
+      }
+      // Throat enhancement: extra pull between close heavy wells
+      for(int k=0;k<nWell;k++){
+        for(int j=k+1;j<nWell;j++){
+          float tp = throatPull(x, wells[k], wells[j]);
+          float stress = tp * throatK * 0.8 * (wells[k].w + wells[j].w);
+          pull += stress;
+          
+          // --- ADD THIS LINE ---
+          // Accumulate the gravitational radiation glow as the ray passes through
+          throatFactor += abs(stress) * 0.15; 
+        }
+      }
+      rd=normalize(rd+pull*0.06*lensK);
+    }
+
+    float dm=1e9; int hb=-1;
+    for(int k=0;k<nWell;k++){
+      float r=length(x-wells[k].xyz);
+      float e=wells[k].w*mGain/(r+1.0);
+      glow+=wellCol[k]*e*e*0.012;
+      float sd=r-(0.5+wells[k].w*0.9*mGain);
+      if(sd<dm){dm=sd;hb=k;}
+    }
+    float dw=dWall(x);
+
+    if(dm<0.02 && hb>=0){
+      vec3 c=wells[hb].xyz; float rad=0.5+wells[hb].w*0.9*mGain;
+      vec3 n=normalize(x-c);
+      if(mode==0){
+        rd=reflect(rd,n); x=c+n*(rad+0.03); tint*=0.82; bnc++;
+        if(bnc>maxBnc){col=vec3(0.0);done=true;break;}
+        x+=rd*0.05; trav+=0.05; continue;
+      } else if(mode==1){
+        float L=0.0; for(int k=0;k<nWell;k++) L+=wells[k].w*mGain/(length(x-wells[k].xyz)+1.0);
+        col=tint*sphereImg(n)*(0.55+0.7*min(L,1.4)); done=true; break;
+      } else {
+        accum+=tint*sphereImg(n)*0.5;
+        rd=reflect(rd,n); x=c+n*(rad+0.03); tint*=0.62; bnc++;
+        if(bnc>maxBnc){col=accum;done=true;break;}
+        x+=rd*0.05; trav+=0.05; continue;
+      }
+    }
+    if(dw<0.02){
+      if(mode==0){
+        vec3 wc=wallImg(x);
+        float L=0.0; for(int k=0;k<nWell;k++) L+=wells[k].w*mGain/(length(x-wells[k].xyz)+1.0);
+        float fog=exp(-trav*0.012);
+        col=wc*tint*(0.30+1.1*min(L,1.6))*fog; done=true; break;
+      } else {
+        vec3 n=wallNormal(x);
+        rd=reflect(rd,n); x+=n*0.06+rd*0.05; tint*=0.85; bnc++;
+        if(bnc>maxBnc){ col=(mode==2)?accum:vec3(0.0); done=true; break; }
+        continue;
+      }
+    }
+    float step_=max(min(dm,dw)*0.9,0.03);
+    x+=rd*step_; trav+=step_;
+    if(trav>170.0)break;
+  }
+  if(!done) col=(mode==2)?accum:vec3(0.0);
+  col+=glow;
+  col=col/(col+1.0);
+  col=pow(col,vec3(0.4545));
+
+  // Subtle throat glow
+  col = mix(col, vec3(0.7,0.4,1.0), throatFactor*0.15);
+
+  O=vec4(col,1.0);
+}`;
+
+function sh(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);
+  if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw gl.getShaderInfoLog(s);return s;}
+let prog,U={};
+try{
+  prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,VERT));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,FRAG));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw gl.getProgramInfoLog(prog);
+  gl.useProgram(prog);
+  ['iRes','camP','camR','camU','camF','nWell','mode','doLens','maxBnc','mGain','lensK','throatK',
+   'camTex','wells','wellCol','layerDepth'].forEach(k=>U[k]=gl.getUniformLocation(prog,k));
+  gl.uniform1i(U.camTex,0);
+}catch(err){
+  boot.classList.add('err');
+  boot.innerHTML='<div class="big">Shader error</div><div class="sub">'+String(err).slice(0,300)+'</div>';
+  throw err;
+}
+gl.bindVertexArray(gl.createVertexArray());
+
+/* ---------------- boundary texture ---------------- */
+const vid=$('vid');
+let camOK=false, useCam=true;
+const camTex=gl.createTexture();
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D,camTex);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);
+gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+
+if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+  navigator.mediaDevices.getUserMedia({video:{width:640,height:480,facingMode:'user'}})
+    .then(st=>{vid.srcObject=st;vid.play();camOK=true;setSrcLabel();})
+    .catch(()=>{useCam=false;camOK=false;setSrcLabel();});
+}else{useCam=false;setSrcLabel();}
+
+const pat=document.createElement('canvas');pat.width=256;pat.height=256;
+const pctx=pat.getContext('2d');
+function drawPattern(t){
+  const g=pctx.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#2a3550');g.addColorStop(1,'#6a4a70');
+  pctx.fillStyle=g;pctx.fillRect(0,0,256,256);
+  const cx=128+64*Math.cos(0.6*t),cy=128+48*Math.sin(0.9*t);
+  for(let s=0;s<24;s++){
+    pctx.fillStyle=s%2?'#d8c890':'#705838';
+    pctx.beginPath();pctx.arc(cx,cy,46-s*1.9,0,7);pctx.fill();
+  }
+  pctx.fillStyle='#101018';pctx.fillRect(176,56,40,40);
+  pctx.fillStyle='#c9d4e0';pctx.font='14px monospace';
+  pctx.fillText('no camera — pattern',56,240);
+}
+function setSrcLabel(){
+  $('src').textContent=useCam&&camOK?'webcam live':'test pattern';
+  $('bSrc').textContent=useCam?'Test pattern':'Use camera';
+}
+function uploadBoundary(t){
+  gl.activeTexture(gl.TEXTURE0);
+  gl.bindTexture(gl.TEXTURE_2D,camTex);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);
+  if(useCam&&camOK&&vid.readyState>=2){
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,vid);
+  }else{
+    drawPattern(t);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,pat);
+  }
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
+}
+
+/* ---------------- moons & throats ---------------- */
+let P={n:7,mGain:1.0,lensK:1.0,throatK:1.0},mode=0,idle=1,layerDepth=0;
+const wellsF=new Float32Array(MAXW*4), colsF=new Float32Array(MAXW*3);
+let moons=[];
+function reseed(){
+  moons=[];
+  for(let i=0;i<MAXW;i++){
+    const m=-Math.log(1e-6+Math.random());
+    moons.push({m,
+      fx:0.05+Math.random()*0.22, fy:0.05+Math.random()*0.22, fz:0.05+Math.random()*0.22,
+      px:Math.random()*6.283, py:Math.random()*6.283, pz:Math.random()*6.283,
+      ax:0.30+Math.random()*0.48, ay:0.30+Math.random()*0.45, az:0.30+Math.random()*0.48,
+      hue:Math.random()});
+  }
+  const mx=Math.max(...moons.map(w=>w.m));
+  for(const w of moons)w.m/=mx;
+}
+reseed();
+function moonCol(h){
+  return[0.55+0.45*Math.cos(6.283*h),0.55+0.45*Math.cos(6.283*(h+0.33)),0.55+0.45*Math.cos(6.283*(h+0.66))];
+}
+function packMoons(t){
+  for(let i=0;i<MAXW;i++){
+    const w=moons[i];
+    wellsF[i*4+0]=HALF[0]*w.ax*Math.sin(w.fx*t+w.px);
+    wellsF[i*4+1]=HALF[1]*w.ay*Math.sin(w.fy*t+w.py);
+    wellsF[i*4+2]=HALF[2]*w.az*Math.sin(w.fz*t+w.pz);
+    wellsF[i*4+3]=w.m;
+    const c=moonCol(w.hue);
+    colsF[i*3+0]=c[0];colsF[i*3+1]=c[1];colsF[i*3+2]=c[2];
+  }
+}
+function countThroats(){
+  let c=0;
+  for(let i=0;i<P.n;i++){
+    for(let j=i+1;j<P.n;j++){
+      let d = Math.hypot(wellsF[i*4]-wellsF[j*4], wellsF[i*4+1]-wellsF[j*4+1], wellsF[i*4+2]-wellsF[j*4+2]);
+      if(d < 4.0 && moons[i].m + moons[j].m > 0.8) c++;
+    }
+  }
+  return c;
+}
+
+/* ---------------- camera & input ---------------- */
+let camP=[0,0,0],yaw=0,pitch=0;
+const keys={};
+addEventListener('keydown',e=>{keys[e.code]=1;
+  if(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE','KeyF','KeyB'].includes(e.code))e.preventDefault();});
+addEventListener('keyup',e=>{keys[e.code]=0;});
+let dragging=false,lx=0,ly=0;
+cvs.addEventListener('pointerdown',e=>{dragging=true;lx=e.clientX;ly=e.clientY;
+  cvs.classList.add('drag');cvs.setPointerCapture(e.pointerId);boot.classList.add('gone');});
+cvs.addEventListener('pointerup',()=>{dragging=false;cvs.classList.remove('drag');});
+cvs.addEventListener('pointermove',e=>{
+  if(!dragging)return;
+  yaw-=(e.clientX-lx)*0.0032;pitch-=(e.clientY-ly)*0.0032;
+  pitch=Math.max(-1.5,Math.min(1.5,pitch));
+  lx=e.clientX;ly=e.clientY;
+});
+
+/* ---------------- controls ---------------- */
+const MODES=[
+  {name:'Boundary', note:'The walls are your webcam. Moons lens and mirror them.'},
+  {name:'Projection', note:'Moons carry your face; walls mirror. Gradient throats tunnel light.'},
+  {name:'Cascade', note:'Moons wear your face and reflect. Throats become wormhole-like bridges.'},
+];
+function setMode(mi){
+  mode=mi;
+  ['m0','m1','m2'].forEach((id,i)=>$(id).classList.toggle('on',i===mi));
+  $('modeV').textContent=MODES[mi].name;
+  $('modeNote').textContent=MODES[mi].note;
+}
+function setStat(s){$('stat').textContent=s;}
+function bind(id,lab,fn){const el=$(id);el.addEventListener('input',()=>{fn(parseFloat(el.value));$(lab).textContent=el.value;});}
+bind('n','n_l',v=>{P.n=v|0;});
+bind('m','m_l',v=>{P.mGain=v;});
+bind('g','g_l',v=>{P.lensK=v;});
+bind('throat','t_l',v=>{P.throatK=v;});
+$('m0').onclick=()=>setMode(0);
+$('m1').onclick=()=>setMode(1);
+$('m2').onclick=()=>setMode(2);
+$('bSrc').onclick=()=>{useCam=!useCam;setSrcLabel();};
+$('bReseed').onclick=reseed;
+$('bIdle').onclick=e=>{idle^=1;e.target.classList.toggle('on',!!idle);
+  e.target.textContent='Idle spin: '+(idle?'on':'off');};
+
+/* ---------------- resize ---------------- */
+let quality=0.68,W=1,H=1;
+function resize(){
+  const dpr=Math.min(devicePixelRatio||1,1.5);
+  W=Math.max(2,Math.floor(cvs.clientWidth*dpr*quality));
+  H=Math.max(2,Math.floor(cvs.clientHeight*dpr*quality));
+  cvs.width=W;cvs.height=H;gl.viewport(0,0,W,H);
+}
+addEventListener('resize',resize);
+
+/* ---------------- loop ---------------- */
+let last=performance.now(),fpsSm=60,t0=performance.now();
+function frame(now){
+  const dt=Math.min((now-last)/1000,0.05);last=now;
+  const t=(now-t0)/1000;
+
+  uploadBoundary(t);
+  packMoons(t);
+
+  const cf=[Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),Math.cos(yaw)*Math.cos(pitch)];
+  const cr=[Math.sin(yaw-1.5708),0,Math.cos(yaw-1.5708)];
+  const cu=[cr[1]*cf[2]-cr[2]*cf[1],cr[2]*cf[0]-cr[0]*cf[2],cr[0]*cf[1]-cr[1]*cf[0]];
+  let sp=(keys['ShiftLeft']||keys['ShiftRight']?14:6)*dt,moved=false;
+  const mv=(v,s)=>{camP[0]+=v[0]*s;camP[1]+=v[1]*s;camP[2]+=v[2]*s;moved=true;};
+  if(keys['KeyW'])mv(cf,sp);if(keys['KeyS'])mv(cf,-sp);
+  if(keys['KeyD'])mv(cr,sp);if(keys['KeyA'])mv(cr,-sp);
+  if(keys['KeyE'])mv([0,1,0],sp);if(keys['KeyQ'])mv([0,1,0],-sp);
+  if(idle&&!moved&&!dragging)yaw+=0.05*dt;
+  for(let i=0;i<3;i++)camP[i]=Math.max(-HALF[i]+0.6,Math.min(HALF[i]-0.6,camP[i]));
+
+  // Portal keys
+  if(keys['KeyF'] && layerDepth < 5){ layerDepth++; keys['KeyF']=0; reseed(); }
+  if(keys['KeyB'] && layerDepth > 0){ layerDepth--; keys['KeyB']=0; }
+
+  gl.uniform2f(U.iRes,W,H);
+  gl.uniform3fv(U.camP,camP);gl.uniform3fv(U.camR,cr);
+  gl.uniform3fv(U.camU,cu);gl.uniform3fv(U.camF,cf);
+  gl.uniform1i(U.nWell,P.n);
+  gl.uniform1i(U.mode,mode);
+  gl.uniform1i(U.doLens,P.lensK>0?1:0);
+  gl.uniform1i(U.maxBnc,4);
+  gl.uniform1f(U.mGain,P.mGain);
+  gl.uniform1f(U.lensK,P.lensK);
+  gl.uniform1f(U.throatK,P.throatK);
+  gl.uniform1i(U.layerDepth,layerDepth);
+  gl.uniform4fv(U.wells,wellsF);
+  gl.uniform3fv(U.wellCol,colsF);
+  gl.drawArrays(gl.TRIANGLES,0,3);
+
+  fpsSm=fpsSm*0.92+(1/Math.max(dt,1e-4))*0.08;
+  $('fps').textContent=Math.round(fpsSm)+' fps';
+  $('nMoon').textContent=P.n;
+  $('throatV').textContent=countThroats();
+  $('lensV').textContent=P.lensK.toFixed(2);
+  $('pos').textContent=camP.map(v=>v.toFixed(1)).join(', ');
+
+  requestAnimationFrame(frame);
+}
+
+resize();
+setSrcLabel();
+setMode(0);
+setTimeout(()=>{
+  ['hud','ctl','help'].forEach(id=>$(id).hidden=false);
+  setTimeout(()=>boot.classList.add('gone'),4600);
+  requestAnimationFrame(frame);
+},350);
+</script>
