@@ -645,6 +645,12 @@ function retreat(){                    /* stepped back — re-dream the past */
 }
 
 /* ---------------- JS twins of the SDFs (collision + transitions) ---------- */
+/* corridor segment distance — the twin of GLSL sdSeg */
+function sdSegJ(px,py,pz,a,b){
+  const bax=b[0]-a[0],bay=b[1]-a[1],baz=b[2]-a[2];
+  const pax=px-a[0],pay=py-a[1],paz=pz-a[2];
+  const h=Math.min(Math.max((pax*bax+pay*bay+paz*baz)/(bax*bax+bay*bay+baz*baz),0),1);
+  return Math.hypot(pax-bax*h,pay-bay*h,paz-baz*h);}
 /* the SAME kernel, mirrored exactly for collision and gate transitions */
 function shapeSDJ(x,y,z,d){
   const s=d.size;
