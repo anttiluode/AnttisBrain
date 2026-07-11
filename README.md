@@ -1,110 +1,132 @@
-# ANTTI'S BRAIN — DESCENT
+# AnttisBrain
 
-You can play the game with soudntrack at huggingface: 
+EDIT: Added takens-time-delay.html which has some time delay creeping in. By gemini.
 
-https://huggingface.co/spaces/Aluode/AnttisBrain
+Welcome to Antti's brain. It is a scary place.
 
-Or here without it: 
-
-https://anttiluode.github.io/AnttisBrain/ 
-
-Or you can download it from huggingface with mp3's: 
-
-git clone https://huggingface.co/spaces/Aluode/AnttisBrain/tree/main
-
-And play it locally. 
+Test it live: https://anttiluode.github.io/AnttisBrain/ the version in the image is cascade mode with webcam on. 
 
 ![pic](pic.png)
 
-An infinite procedural key-hunt built on the Antti's Brain 2 engine (WebGL2 raymarcher, hash-dreamed chambers, refracting crystal moons, webcam boundary). One HTML file, no dependencies, no build step. No enemies, no timers, no hand-made levels — only geometry, depth, and the hash.
 
-Do not hype. Do not lie. Just show.
+Four small worlds you can fly through in a browser. Each is a single self-contained HTML file — no build step, no dependencies, no server. Open one and you are inside it. They share a lineage and a discipline: every visual thing on screen is a real technique doing what the label says, and where something is an approximation, it says so.
 
----
-
-## The Divergence: Trying to Build It "Like Normal"
-
-During development, we took a weird side step trying to make the engine work "like normal." We tried to force variety by writing *more code*. We explicitly coded 12 discrete chamber shapes (cubes, cylinders, stars, gears) using a branched shape function and finite-difference normals. We also abandoned surface optics and forced light rays to march through the volumetric bulk of the glass objects to calculate Snell refraction and Beer-Lambert absorption. 
-
-**The Result:** The GPU rejected it. The branches multiplied by the interior loops created a compile-time bomb that choked the driver for minutes. The heavy bulk transport caused the driver to TDR (Timeout Detection and Recovery) and crash. We had tried to put the complexity into the shader's execution paths, prioritizing physical bulk over constraint-driven beauty.
-
-## The Lesson: Complexity Belongs in Data, Not Code
-
-We learned that to survive the frame budget, we had to return to the logic of the original "Aeon Forge" and the meaning of *Rajapinta* (Boundary). The GPU merely enforced the engine's own metaphysics: information belongs on surfaces, and light travels in a vacuum. 
-
-The fix wasn't to optimize the 12 shapes; it was to delete them. We replaced the shape zoo with **one branchless law**—a single p-norm parametric superellipsoid kernel. Now, a room is no longer a hardcoded shape; it is a point in a continuous shape space defined by a parameter vector (cross-section exponent, profile exponent, squash, angular ripple, torus blend) drawn from the hash. Complexity is encoded entirely into data parameters, not shader branches.
-
-By returning optics to the boundary—reflecting, accumulating, and lensing at the surface without penetrating the bulk—the engine regained its elegance. The shader stays fixed and small, compiling instantly, while generating infinite variety.
+**Live:** the repo deploys to GitHub Pages, so each world is playable at
+[`https://anttiluode.github.io/AnttisBrain/<file>.html`.](https://anttiluode.github.io/AnttisBrain/)
 
 ---
 
-## The Game
+## The lineage in one paragraph
 
-The brain is an endless chain of chambers, a pure function of (SEED, room index).
-A level is a run of rooms: level 1 is 4 rooms, level 2 is 5, … capped at 10 per level.
-
-Somewhere in the level, one crystal is the key: it is gold and it pulses. Touch it. The corridor after the level's last room is closed by a red seal — a glowing membrane you cannot pass. Touch the key and the seal dissolves. Walk through: next level.
-
-The resonance meter in the HUD is your only guide: it tells you how many rooms away the key is, and once you're in the right room it runs hot with live distance. Hot / cold, nothing more. There is no way to lose. There is only further down.
-
-## What Deepens with the Level
-
-Everything below is still deterministic — same seed, same descent.
-
-| Property | How it grows |
-| :--- | :--- |
-| **Level length** | 4 rooms → 10 rooms (cap) |
-| **Shape pool** | Rooms morph continuously with depth. Level 1 yields soft orbs; by Level 12 you walk twisted stars; by Level 21 the rooms become rings. The descent widens the parameter distribution. |
-| **Twist** | Rooms shear around their vertical axis, stronger with depth. |
-| **Ripple** | From level 3, walls start to breathe with a triple-sine displacement. |
-| **Mass** | Each room has its own mass factor (shown in HUD); moons grow heavier, lensing pulls harder. |
-| **Moons per room** | 3 → 5 |
-
-The moons wear their room's shape, shrunk and rounded into optical glass, meaning new room parameters yield new crystal shapes instantly. Twist and ripple apply on top of any shape vector. 
+These grew out of a long argument about whether a universe could be a low-dimensional signal "blown up" into a world you can move through. The honest answer turned out to be: not by inverse-FFT of a boundary — that's slow, lossy, and blurry — but yes by the techniques these files actually use. Spectral synthesis really does turn a few numbers into terrain. A distance field really is a compact world you ray-march. A `Σ mᵢ/(r+1)` sum really does read as a cosmos of gravity wells. And a curved light path really does bend an image the way mass bends spacetime. Each file keeps the beautiful part of the idea and drops the part that doesn't survive a frame budget.
 
 ---
 
-## Controls
+## The worlds
 
-*   **W A S D** — move
-*   **Q / E** — down / up
-*   **Shift** — boost
-*   **Drag** — look (horizontal inverted, as tradition demands)
+### 1. `rajapinta_engine.html` — spectral SDF flythrough
 
-### Modes
-*   **Boundary:** The walls are your camera; the moons are curved mirrors that lens and reflect them.
-*   **Projection:** The moons carry your face; every wall is a mirror. The image emanates from the bulk (the holographic swap).
-*   **Cascade:** Every crystal wears your face and mirrors its neighbors. Holographic accumulation with a capped bounce depth.
-*   **Glass:** The honest-physics exhibit. Heavy optics where the ray refracts through the crystal bulk (Snell + Beer-Lambert). Safe to run here because rays terminate at the image wall.
+The origin point. A ray-marched signed-distance world you fly through, built from three ideas that all ship in real engines:
 
-### Toggles
-*   **Sliders:** Mass gain, lensing strength, music volume
-*   **Music:** on/off — toggles the soundtrack
-*   **New brain:** Fresh seed, back to level 1
+- **The terrain is a spectrally-synthesized heightfield.** Noise octaves are summed with weights `2^(−β·i)`, where β is the spectral slope. Slide β down toward 0.4 and the ground turns jagged and broadband; slide it up toward 3.2 and it smooths into rolling swells. This is the honest version of "a spectrum becomes a landscape" — spectral synthesis, the way No Man's Sky and every infinite-terrain generator actually works, not an FFT reconstruction of a bulk.
+- **The bright structures are light, not geometry.** Each "well" emits `Σ mᵢ/(r+1)`, accumulated along the ray as volumetric bloom. That formula is lifted directly from the old space-screensaver's density field — the same heavy-tailed exponential mass distribution, so a few bright wells dominate and the field reads as a cosmos.
+- **The wells bend the rays.** With lensing on, each ray deflects toward the wells by `Σ m·dv/r⁴` per step — an analog-gravity nudge. This is where the signature effect first appeared: the moons *drag the ground*. Toggle lensing off and the space goes flat.
+
+Controls: WASD move, QE down/up, drag to look, shift to boost, release to auto-drift. Sliders for spectral slope, well count, and mass gain; toggles for lensing and drift.
+
+### 2. `aeon_forge.html` — a different universe every boot
+
+The forge. Here the seed doesn't just place the moons — it writes the **laws**. Every boot compiles a new universe from a single 32-bit number, deterministically, in fixed order: spectral slope, carrying capacity, fog, lensing strength, the entire colour palette, whether the sky carries a galactic band, and the sign of the arrow of time. Boot the same seed twice and you get bit-identical physics; boot a new one and the rules change, not just the scenery.
+
+Three things make it a forge rather than a viewer:
+
+- **The ground is alive.** A Gray–Scott reaction–diffusion field — the continuous cousin of the Game of Life — runs on the terrain the whole time. Each universe draws one of six regimes (mitosis, coral, worms, mazes, pulse fronts, solitons) and you watch the crust grow, split, and crawl as epochs pass. Turn the time slider up to watch it churn; if a crust dies out it reseeds and says so.
+- **The arrow of time is a skew.** Each universe gets a signed skew rotation and shear of the terrain domain — the ground itself slowly flows one way. The sign is drawn from the seed. It is a deliberate nod to the antisymmetric operator `A = (Cτ − Cτᵀ)/2` that runs through the wider research program: the skew half of a lag-covariance is what carries temporal direction.
+- **The universe has a history and a name.** Wells accrete when they touch and new stars ignite up to the universe's carrying capacity, each event logged. Every universe is `AEON-<seed>-<epoch>` — the DNA. Copy it, paste it, hand it to someone, and they boot *your* universe at *your* age, because the laws and orbits are analytic in age. Save/Resume also stores your camera locally.
+
+Honest limit: the DNA restores laws and epoch exactly, but the accretion history re-runs rather than replays — a reloaded universe is a twin, not a photograph.
+
+### 3. `rajapinta_box.html` — you are inside your own boundary
+
+The inversion. Instead of flying over a world, you sit at the centre of a cube whose **six walls are your live webcam**. Moons orbit between you and your image, and their mass bends the rays your eye sends toward the walls — so your own face drags and warps as they pass, exactly the way the ground did in the engine. The webcam image itself is never touched; every distortion you see is the geometry of the light path.
+
+- **Lensing** bends each ray toward the wells. Push the slider up and the moons stop dragging and start swallowing — rays wrap far enough around a heavy moon that you see the wall behind you warped into a ring.
+- **Mirror moons** reflect the walls: each moon becomes a curved mirror showing a fisheye copy of the boundary — you, reflected in the mass that is simultaneously lensing you.
+- **The walls are lit by the wells** via `Σ m/(r+1)`, so a heavy moon passing near a wall brightens your image under it like a lamp.
+
+No camera, or permission denied, falls back to a moving test pattern (the striped orbiting disk with an occluder, from the old SlapStack demo). The physics is identical. Nothing leaves your machine — no server, no upload, single user by design.
+
+### 4. `rajapinta_box_gr.html` — real geodesic lensing
+
+The same box, with the fake force removed. This build integrates **actual null geodesics**. Each moon contributes to an optical Schwarzschild metric, a refractive index `n(x) = 1 + Σ rₛ/|x − xₖ|`, and every ray obeys the real light-ray equation `d/ds(n·u) = ∇n`, stepped in arc length with the tangent projected to stay unit-length.
+
+The point of doing it properly is that the bending is now *correct*, not just plausible. Integrated against Einstein's exact deflection law `α = 4GM/c²b = 2rₛ/b`, the shipped integrator matches to within half a percent in the weak field, with the correct higher-order excess appearing as rays graze closer to a core. So:
+
+- **True Einstein rings.** When a moon lines up between you and a patch of your face on the far wall, that light reaches your eye along a whole ring of curved paths, at the physically correct radius. Not a faked fisheye — a real ring of lensed geodesics.
+- **A photon sphere.** Fly close to a heavy moon and rays near it spiral; some escape distorted, some cross the capture radius and fall in, returning black. That gives a heavy moon a genuine shadow rim — the same mechanism behind a black hole's silhouette. A live meter reads out how much of your view is currently falling into cores.
+
+The `Σrₛ` slider is a real mass dial; the geodesic-resolution slider trades sharpness for framerate (geodesic marching is heavier than the fake force, so this build runs at lower internal resolution).
+
+Honest limits: this is the *optical-metric* formulation — exact for light bending and rings to the order that matters, but it models the deflection of light only, not time dilation or redshift. A clock isn't ticking slow in there. And the "ring geometry" inside a small box is dominated by strong-field capture, which is physically correct but not the clean thin-lens ring you'd get with a distant source.
+
+### **5. index.html — the holographic cascade**
+
+The capstone of the boundary-bulk experiments. You sit at the centre of a cube, but here, the holographic principle is a toggle switch. The engine lets you explicitly swap which part of the universe holds information and which part reflects it, giving you three distinct realities built from the exact same geometry.
+
+- **Boundary mode:** The walls are your live webcam; the moons are curved mirrors that lens and reflect the boundary. You watch your face drag across the geometry of the bulk.
+- **Projection mode (The swap):** The moons carry the image; the walls become pure mirrors. The information emanates from the bulk and the boundary merely echoes it.
+- **Cascade mode:** The fractal collapse. The moons carry your face *and* mirror each other simultaneously. Every ray of light scatters ball to ball to wall in a recursive loop. You are looking at a hall of mirrors built entirely out of your own scattered image, folded through gravity.
+
+The shader logic for Cascade mode breaks the usual rule of rendering where an object is either a light source or a mirror. Here, the moons are both, endlessly accumulating fractions of the observer into the void.
+
+*Like the other boxes, this asks for camera permission. Deny it and it falls back to a moving test pattern with identical physics. Nothing leaves your machine.*
+
+### **6. takens-time-delay.html — spatialized phase-space reconstruction**
+
+The evolution of the cascade into a temporal memory substrate. In this build, the local speed of light is tied to the gravitational potential. The geodesic arc-length (trav) no longer just calculates fog—it acts as an index into a live, rolling 60-frame 3D texture buffer of the boundary.  
+Mass doesn't just bend space here; it creates local reservoirs of time.
+
+* **Continuous Takens Embedding:** Light passing close to a heavy moon takes longer to escape to your eye. This means a single spatial cross-section of the screen displays a continuous gradient of time delays. The bulk acts as a delay-coordinate map, spatially unfolding the hidden phase-space of whatever dynamics are happening on the webcam.  
+* **Temporal Gravity Wells:** If you move your hand across the camera, flat space updates instantly, but the heavy cores hold onto frozen "ghosts" of your past position. You can watch your own history slowly dissolve as the trapped, older light finally crawls out of the curvature.  
+* **Koopman-Ready Interference:** Because the time-delays have unfolded hidden variables into spatial coordinates, the visual interference patterns wrapping around the moons effectively linearize the nonlinear dynamics of the boundary. The cascade is no longer just a spatial hall of mirrors; it is a temporal feedback loop where your present image collides with your past.
+
+*(Like the other boxes, this asks for camera permission. Deny it and it falls back to a moving test pattern with identical physics. Nothing leaves your machine.)*
 
 ---
 
-## Save / Load
+## The mathematics, gathered
 
-The entire game state is six numbers: `{version, seed, level, room index, key flag, max level reached}`. Everything else is re-dreamed from the hash on load, including the key's location and the walk direction of the chain (reconstructed by replaying the turn angles — verified bit-exact).
+The four files are four readings of the same handful of objects:
 
-*   **Save:** Writes to localStorage (when the browser allows it) and keeps a code ready.
-*   **Save code:** Prints the save as a short base64 string and copies it to the clipboard. This works everywhere, including `file://` pages and sandboxes where localStorage is blocked. Paste it into a text file, an email, a commit message.
-*   **Load:** Reads the local save, or accepts a pasted code.
+- **Spectral synthesis.** A power-law spectrum `2^(−β·i)` over noise octaves builds terrain. β is the one knob between broadband roughness and smooth swell — the "few numbers → whole world" instinct, done the way that actually works.
+- **Signed distance fields.** The world is defined by a function giving distance to the nearest surface; a camera ray marches along it, touching only what it can see. This is why a whole volume can be a few lines of shader.
+- **The emission sum `Σ mᵢ/(r+1)`.** A halo field with a heavy-tailed (exponential) mass distribution. Thresholded it is a metaball / density field; summed as light it is a cosmos. The heavy tail is why a few wells dominate and the thing looks structured rather than uniform.
+- **Reaction–diffusion (Gray–Scott).** Two coupled fields, `∂u = Dᵤ∇²u − uv² + F(1−u)` and `∂v = Dᵥ∇²v + uv² − (F+k)v`. The `(F, k)` pair selects the regime; the same equations give spots, stripes, mazes, and travelling fronts. This is the living crust in the forge.
+- **The antisymmetric / skew operator.** `A = (Cτ − Cτᵀ)/2` — the skew half of a lag-covariance carries temporal direction. In the forge it becomes the signed rotation-shear that gives each universe an arrow of time you can see in the drift of the ground.
+- **Gravitational lensing, two ways.** The fake version bends rays by `Σ m·dv/r⁴` — cheap, tunable, "looks like gravity." The real version integrates null geodesics through an optical metric `n = 1 + Σ rₛ/r`, recovering the exact `4GM/c²b` deflection, Einstein rings at the right radius, and photon-sphere capture. The GR file exists to show the difference between "looks bent" and "bends by the correct amount."
 
-The game autosaves on every level-up and key pickup, and silently resumes on launch if a local save exists. Walking backward is always allowed. Levels you have already beaten stay open (the game remembers your max level, so re-crossing an old seal never re-locks it), but the current level's key must be found each fresh descent into new territory.
+The wider connection the theory kept circling — the **holographic** one — is most literal in the box: the walls are a boundary, the moons are a bulk, and the light that reaches your eye is the boundary seen through the bulk's curvature. Swapping which one carries the image and which one reflects it gives genuinely different worlds from the same geometry. That swap is exactly what **index.html** executes, turning a spatial limitation into a fractal cascade.
 
 ---
 
-## Technical Notes
+## Running them
 
-*   **Single Fragment Shader:** One fullscreen triangle, raymarched SDFs.
-*   **Unified Parametric SDF:** Rooms and moons share one branchless shape function, driven by a 6-number vector. There are no discrete shape loops to unroll and no finite-difference normal overhead for the analytical bases.
-*   **Guaranteed Transitions:** Every SDF has a JavaScript twin used for collision and gate transitions. The deterministic pure function guarantees the room center is deep interior (transition trigger fires at −1.0), so no parametric shape configuration can ever strand you in a wall.
-*   **Lipshitz Continuity:** Twist and ripple are applied as domain modifications with a Lipschitz correction factor on the returned distance, so marching stays conservative and never tunnels (guarded against radial singularity blow-ups).
-*   **First Paint Compilation:** Shader compilation is deferred until after first paint and uses `KHR_parallel_shader_compile` when available. Loop bounds (march steps, glass-refraction steps, wall-escape steps) are passed as **uniforms**. This forces the D3D/ANGLE compiler to compile the loop body exactly once rather than unrolling a 180-step march, eliminating the compile-time bomb. 
-*   **O(1) Hash Generation:** `rng(index, salt)` handles the integer hash. Any room at any depth can be queried in O(1) without generating the rooms before it. Only 3 rooms exist at a time (prev / current / next).
+Every file is standalone. Clone the repo and open any `.html` in a recent WebGL2 browser (Chrome, Firefox, Edge, Safari), or use the GitHub Pages links above. The two box files ask for camera permission; deny it and they fall back to a test pattern with identical physics. Nothing is uploaded anywhere.
 
-## Running
+```
+git clone https://github.com/anttiluode/AnttisBrain.git
+cd AnttisBrain
+# open any .html file in a browser
+```
 
-Open `anttis-brain-descent.html` in any WebGL2 browser. Place `game1.mp3` ... `game10.mp3` in the same directory for endless chained audio. Allow the camera if you want the boundary texture to be you; decline, and the animated test pattern takes over.
+Requirements: a WebGL2-capable browser and, for the box files, a webcam (optional). No install, no dependencies.
+
+---
+
+## A note on what these are, and aren't
+
+These are instruments and toys, not physics papers. They make real techniques legible and playable — you can feel what a spectral slope does, watch reaction–diffusion breathe, see mass bend light by the correct law. Where a shortcut is taken, the file and this README name it. That is the whole ethos: do not hype, do not lie, just show.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
