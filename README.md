@@ -1,12 +1,4 @@
----
-title: Antti's Brain Descent
-emoji: 🌌
-colorFrom: gray
-colorTo: blue
-sdk: static
-pinned: false
-short_description: Infinite procedural key-hunt in a WebGL2 labyrinth.
----
+# ANTTI'S BRAIN — DESCENT
 
 You can play the game with soudntrack at huggingface: 
 
@@ -21,8 +13,6 @@ Or you can download it from huggingface with mp3's:
 git clone https://huggingface.co/spaces/Aluode/AnttisBrain/tree/main
 
 And play it locally. 
-
-# ANTTI'S BRAIN — DESCENT
 
 ![pic](pic.png)
 
